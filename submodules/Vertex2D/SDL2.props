@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <SDL2Root Condition="'$(SDL2Root)' == '' and '$(SDL2_DIR)' != ''">$(SDL2_DIR)</SDL2Root>
+    <SDL2Root Condition="'$(SDL2Root)' == '' and Exists('C:\sdl2\include\SDL.h')">C:\sdl2</SDL2Root>
+    <SDL2Root Condition="'$(SDL2Root)' == ''">$(SolutionDir)dependencies\SDL2</SDL2Root>
+    <SDL2LibraryArchitecture Condition="'$(Platform)' == 'Win32'">x86</SDL2LibraryArchitecture>
+    <SDL2LibraryArchitecture Condition="'$(Platform)' == 'x64'">x64</SDL2LibraryArchitecture>
+    <SDL2IncludeDirectory>$(SDL2Root)\include</SDL2IncludeDirectory>
+    <SDL2LibraryDirectory>$(SDL2Root)\lib\$(SDL2LibraryArchitecture)</SDL2LibraryDirectory>
+  </PropertyGroup>
+</Project>
