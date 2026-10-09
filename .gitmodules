@@ -1,0 +1,3 @@
+[submodule "submodules/Vertex2D"]
+	path = submodules/Vertex2D
+	url = https://github.com/sup3rtemaki/Vertex2D.git
