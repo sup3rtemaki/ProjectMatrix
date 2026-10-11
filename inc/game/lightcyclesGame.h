@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cameraController.h"
+#include "cameraTarget.h"
 #include "cycle.h"
 #include "inputCommand.h"
 #include "keyboardInput.h"
@@ -28,9 +30,10 @@ public:
 
 private:
 	static constexpr int CELL_SIZE = 12;
-	static constexpr int GRID_WIDTH = WINDOW_WIDTH / CELL_SIZE;
-	static constexpr int GRID_HEIGHT = WINDOW_HEIGHT / CELL_SIZE;
-	static constexpr int GRID_TOP = (WINDOW_HEIGHT - GRID_HEIGHT * CELL_SIZE) / 2;
+	static constexpr int WORLD_WIDTH = 160;
+	static constexpr int WORLD_HEIGHT = 100;
+	static constexpr int GRID_WIDTH = WORLD_WIDTH;
+	static constexpr int GRID_HEIGHT = WORLD_HEIGHT;
 	static constexpr float MOVE_STEP_SECONDS = 0.12f;
 
 	struct PlannedMove {
@@ -51,6 +54,9 @@ private:
 
 	SDL_Renderer* renderer_;
 	KeyboardInput keyboard_;
+	CameraController cameraController_;
+	CameraTarget cameraTarget_;
+	SDL_Rect camera_ = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
 	Cycle player_;
 	std::vector<Cycle> enemies_;
 	std::vector<std::uint8_t> occupied_;

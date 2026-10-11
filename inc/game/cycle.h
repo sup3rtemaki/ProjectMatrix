@@ -2,7 +2,8 @@
 
 #include "SDL.h"
 
-#include <vector>
+#include <cstddef>
+#include <deque>
 
 enum class Direction {
 	North,
@@ -13,19 +14,22 @@ enum class Direction {
 
 class Cycle {
 public:
+	static constexpr std::size_t MAX_TRAIL_LENGTH = 40;
+
 	Cycle(SDL_Color glowColor, SDL_Color coreColor);
 
 	void reset(SDL_Point start, Direction direction);
 	void setDirection(Direction direction);
 	void setDirectionFromAngle(float angle);
 	void advanceTo(SDL_Point destination);
+	SDL_Point popOldestTrailPoint();
 	void crash();
 
 	SDL_Point position() const;
 	Direction direction() const;
 	SDL_Point nextPosition() const;
 	SDL_Point nextPosition(Direction direction) const;
-	const std::vector<SDL_Point>& trail() const;
+	const std::deque<SDL_Point>& trail() const;
 	SDL_Color glowColor() const;
 	SDL_Color coreColor() const;
 	bool alive() const;
@@ -37,7 +41,7 @@ private:
 
 	SDL_Point position_{};
 	Direction direction_ = Direction::East;
-	std::vector<SDL_Point> trail_;
+	std::deque<SDL_Point> trail_;
 	SDL_Color glowColor_{};
 	SDL_Color coreColor_{};
 	bool alive_ = true;

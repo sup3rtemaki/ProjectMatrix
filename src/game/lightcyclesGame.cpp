@@ -25,6 +25,9 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer)
 	keyboard_.DOWN = SDL_SCANCODE_S;
 	keyboard_.LEFT = SDL_SCANCODE_A;
 	keyboard_.RIGHT = SDL_SCANCODE_D;
+	cameraController_.isLerping = true;
+	cameraController_.lerp = 10.0f;
+	cameraController_.target = &cameraTarget_;
 	reset();
 }
 
@@ -66,6 +69,11 @@ void LightcyclesGame::update(float elapsedSeconds) {
 		return;
 	}
 
+	cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
+	cameraTarget_.x = static_cast<float>(player_.position().x * CELL_SIZE + CELL_SIZE / 2);
+	cameraTarget_.y = static_cast<float>(player_.position().y * CELL_SIZE + CELL_SIZE / 2);
+	cameraController_.update(camera_, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE);
+
 	stepAccumulator_ += std::min(elapsedSeconds, 0.25f);
 	while (result_ == GameResult::Running && stepAccumulator_ >= MOVE_STEP_SECONDS) {
 		updateCycles();
@@ -77,7 +85,7 @@ void LightcyclesGame::render() const {
 	SDL_SetRenderDrawColor(renderer_, 0, 0, 0, SDL_ALPHA_OPAQUE);
 	SDL_RenderClear(renderer_);
 
-	const SDL_Rect arena = { 0, GRID_TOP, WINDOW_WIDTH, GRID_HEIGHT * CELL_SIZE };
+	const SDL_Rect arena = { -camera_.x, -camera_.y, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE };
 	SDL_SetRenderDrawColor(renderer_, 22, 32, 45, SDL_ALPHA_OPAQUE);
 	SDL_RenderDrawRect(renderer_, &arena);
 
@@ -189,6 +197,10 @@ void LightcyclesGame::updateCycles() {
 			continue;
 		}
 		move.cycle->advanceTo(move.destination);
+		if (move.cycle->trail().size() > Cycle::MAX_TRAIL_LENGTH) {
+			const SDL_Point expired = move.cycle->popOldestTrailPoint();
+			occupied_[gridIndex(expired.x, expired.y)] = 0;
+		}
 		occupied_[gridIndex(move.destination.x, move.destination.y)] = 1;
 	}
 
@@ -222,13 +234,17 @@ void LightcyclesGame::reset() {
 		enemies_[index].reset(starts[index], directions[index]);
 		occupied_[gridIndex(starts[index].x, starts[index].y)] = 1;
 	}
+	cameraTarget_.x = static_cast<float>(player_.position().x * CELL_SIZE + CELL_SIZE / 2);
+	cameraTarget_.y = static_cast<float>(player_.position().y * CELL_SIZE + CELL_SIZE / 2);
+	cameraController_.deltaTime = 0.016f;
+	cameraController_.update(camera_, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE);
 	result_ = GameResult::Running;
 	stepAccumulator_ = 0;
 }
 
 void LightcyclesGame::drawCycle(const Cycle& cycle) const {
 	for (const SDL_Point point : cycle.trail()) {
-		const SDL_Rect glow = { point.x * CELL_SIZE, GRID_TOP + point.y * CELL_SIZE,
+		const SDL_Rect glow = { point.x * CELL_SIZE - camera_.x, point.y * CELL_SIZE - camera_.y,
 			CELL_SIZE, CELL_SIZE };
 		setDrawColor(cycle.glowColor());
 		SDL_RenderFillRect(renderer_, &glow);
@@ -243,8 +259,8 @@ void LightcyclesGame::drawCycle(const Cycle& cycle) const {
 	}
 
 	const SDL_Point position = cycle.position();
-	const SDL_Rect bike = { position.x * CELL_SIZE + 1,
-		GRID_TOP + position.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2 };
+	const SDL_Rect bike = { position.x * CELL_SIZE - camera_.x + 1,
+		position.y * CELL_SIZE - camera_.y + 1, CELL_SIZE - 2, CELL_SIZE - 2 };
 	setDrawColor(cycle.coreColor());
 	SDL_RenderFillRect(renderer_, &bike);
 }

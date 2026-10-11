@@ -36,6 +36,12 @@ void Cycle::advanceTo(SDL_Point destination) {
 	trail_.push_back(destination);
 }
 
+SDL_Point Cycle::popOldestTrailPoint() {
+	const SDL_Point oldest = trail_.front();
+	trail_.pop_front();
+	return oldest;
+}
+
 void Cycle::crash() {
 	alive_ = false;
 }
@@ -57,7 +63,7 @@ SDL_Point Cycle::nextPosition(Direction direction) const {
 	return { position_.x + offset.x, position_.y + offset.y };
 }
 
-const std::vector<SDL_Point>& Cycle::trail() const {
+const std::deque<SDL_Point>& Cycle::trail() const {
 	return trail_;
 }
 

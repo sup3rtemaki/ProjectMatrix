@@ -93,7 +93,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -111,7 +111,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -129,7 +129,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -147,7 +147,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -166,6 +166,7 @@
     <ClCompile Include="src\game\lightcyclesGame.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\game\cameraTarget.h" />
     <ClInclude Include="inc\game\cycle.h" />
     <ClInclude Include="inc\game\lightcyclesGame.h" />
   </ItemGroup>
@@ -176,7 +177,10 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="CopySDL2Runtime" AfterTargets="Build">
-    <Copy SourceFiles="$(SDL2LibraryDirectory)\SDL2.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="Exists('$(SDL2LibraryDirectory)\SDL2.dll')" />
+    <ItemGroup>
+      <SDL2RuntimeFiles Include="$(SDL2LibraryDirectory)\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SDL2RuntimeFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
