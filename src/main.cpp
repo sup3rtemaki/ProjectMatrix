@@ -31,19 +31,21 @@ int main(int, char**) {
 		return 1;
 	}
 
-	LightcyclesGame game(renderer);
-	TimeController gameTime;
-	gameTime.reset();
+	{
+		LightcyclesGame game(renderer);
+		TimeController gameTime;
+		gameTime.reset();
 
-	while (game.isRunning()) {
-		SDL_Event event;
-		while (SDL_PollEvent(&event)) {
-			game.handleEvent(event);
+		while (game.isRunning()) {
+			SDL_Event event;
+			while (SDL_PollEvent(&event)) {
+				game.handleEvent(event);
+			}
+
+			gameTime.updateTime();
+			game.update(gameTime.dT);
+			game.render();
 		}
-
-		gameTime.updateTime();
-		game.update(gameTime.dT);
-		game.render();
 	}
 
 	SDL_DestroyRenderer(renderer);

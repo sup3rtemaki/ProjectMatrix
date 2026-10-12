@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SDL.h"
+#include "livingEntity.h"
 
 #include <cstddef>
 #include <deque>
@@ -12,11 +12,13 @@ enum class Direction {
 	West
 };
 
-class Cycle {
+class Cycle : public LivingEntity {
 public:
 	static constexpr std::size_t MAX_TRAIL_LENGTH = 40;
+	static constexpr int SPRITE_CELLS = 6; // sprite is drawn this many grid cells wide
 
-	Cycle(SDL_Color glowColor, SDL_Color coreColor);
+	// animSet is shared and owned by the caller.
+	Cycle(SDL_Color glowColor, SDL_Color coreColor, AnimationSet* animSet, int cellSize);
 
 	void reset(SDL_Point start, Direction direction);
 	void setDirection(Direction direction);
@@ -24,6 +26,11 @@ public:
 	void advanceTo(SDL_Point destination);
 	SDL_Point popOldestTrailPoint();
 	void crash();
+
+	void draw(const RenderContext& context) override;
+	void changeAnimation(int newState, bool resetFrameToBeginning, string animName = "") override;
+	void updateDamages() override {}
+	void die() override { crash(); }
 
 	SDL_Point position() const;
 	Direction direction() const;
@@ -38,11 +45,15 @@ private:
 	static SDL_Point directionOffset(Direction direction);
 	static Direction turnLeft(Direction direction);
 	static Direction turnRight(Direction direction);
+	static const char* animationName(Direction direction);
+
+	void updatePixelPosition();
 
 	SDL_Point position_{};
 	Direction direction_ = Direction::East;
 	std::deque<SDL_Point> trail_;
 	SDL_Color glowColor_{};
 	SDL_Color coreColor_{};
+	int cellSize_;
 	bool alive_ = true;
 };

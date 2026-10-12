@@ -164,11 +164,21 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\game\cycle.cpp" />
     <ClCompile Include="src\game\lightcyclesGame.cpp" />
+    <ClCompile Include="src\game\ai\arenaView.cpp" />
+    <ClCompile Include="src\game\ai\enemyBrain.cpp" />
+    <ClCompile Include="src\game\ai\enemyPersonality.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\game\cameraTarget.h" />
     <ClInclude Include="inc\game\cycle.h" />
     <ClInclude Include="inc\game\lightcyclesGame.h" />
+    <ClInclude Include="inc\game\ai\arenaView.h" />
+    <ClInclude Include="inc\game\ai\enemyBrain.h" />
+    <ClInclude Include="inc\game\ai\enemyPersonality.h" />
+    <ClInclude Include="inc\game\ai\personalities\aggressorBrain.h" />
+    <ClInclude Include="inc\game\ai\personalities\ambusherBrain.h" />
+    <ClInclude Include="inc\game\ai\personalities\cowardBrain.h" />
+    <ClInclude Include="inc\game\ai\personalities\erraticBrain.h" />
+    <ClInclude Include="inc\game\ai\personalities\strategistBrain.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="submodules\Vertex2D\engine.vcxproj">
@@ -181,6 +191,12 @@
       <SDL2RuntimeFiles Include="$(SDL2LibraryDirectory)\*.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(SDL2RuntimeFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyResources" AfterTargets="Build">
+    <ItemGroup>
+      <ResourceFiles Include="$(ProjectDir)res\**\*" Exclude="$(ProjectDir)res\**\*.blend;$(ProjectDir)res\**\*.blend1;$(ProjectDir)res\**\*.zip;$(ProjectDir)res\tron-1982-lightcycle\**" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ResourceFiles)" DestinationFiles="@(ResourceFiles->'$(OutDir)res\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

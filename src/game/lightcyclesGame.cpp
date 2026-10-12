@@ -1,33 +1,59 @@
 #include "lightcyclesGame.h"
 
-#include "randomNumber.h"
+#include "res_path.h"
 
 #include <algorithm>
+#include <fstream>
+#include <iostream>
 
 namespace {
 constexpr SDL_Color PLAYER_GLOW = { 0, 90, 135, 255 };
 constexpr SDL_Color PLAYER_CORE = { 20, 235, 255, 255 };
-constexpr SDL_Color RED_GLOW = { 105, 15, 30, 255 };
-constexpr SDL_Color RED_CORE = { 255, 45, 75, 255 };
-constexpr SDL_Color ORANGE_GLOW = { 105, 50, 5, 255 };
-constexpr SDL_Color ORANGE_CORE = { 255, 155, 35, 255 };
-constexpr SDL_Color PURPLE_GLOW = { 65, 20, 115, 255 };
-constexpr SDL_Color PURPLE_CORE = { 185, 95, 255, 255 };
+
+struct EnemySpec {
+	EnemyPersonality personality;
+	SDL_Color glow;
+	SDL_Color core;
+	SDL_Point startPercent; // position in the arena, as a percentage of its size
+	Direction direction;
+};
+
+const EnemySpec ENEMY_SPECS[] = {
+	{ EnemyPersonality::Aggressor, { 105, 15, 30, 255 }, { 255, 45, 75, 255 }, { 90, 50 }, Direction::West },
+	{ EnemyPersonality::Ambusher, { 105, 50, 5, 255 }, { 255, 155, 35, 255 }, { 10, 25 }, Direction::South },
+	{ EnemyPersonality::Strategist, { 65, 20, 115, 255 }, { 185, 95, 255, 255 }, { 50, 75 }, Direction::North },
+	{ EnemyPersonality::Coward, { 10, 95, 45, 255 }, { 60, 255, 130, 255 }, { 85, 70 }, Direction::West },
+	{ EnemyPersonality::Erratic, { 110, 95, 5, 255 }, { 255, 235, 50, 255 }, { 85, 80 }, Direction::West }
+};
 }
 
 LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer)
 	: renderer_(renderer),
-	player_(PLAYER_GLOW, PLAYER_CORE),
-	enemies_({ Cycle(RED_GLOW, RED_CORE), Cycle(ORANGE_GLOW, ORANGE_CORE),
-		Cycle(PURPLE_GLOW, PURPLE_CORE) }),
+	resPath_(getResourcePath()),
+	player_(PLAYER_GLOW, PLAYER_CORE, &cycleAnimSet_, CELL_SIZE),
 	occupied_(static_cast<std::size_t>(GRID_WIDTH * GRID_HEIGHT), 0) {
+	for (const EnemySpec& spec : ENEMY_SPECS) {
+		enemies_.emplace_back(spec.glow, spec.core, &cycleAnimSet_, CELL_SIZE);
+		brains_.push_back(createEnemyBrain(spec.personality));
+	}
+	renderContext_.renderer = renderer_;
+	renderContext_.camera = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+
+	if (std::ifstream(resPath_ + CYCLE_ANIMATION_SET).good()) {
+		std::list<DataGroupType> dataGroupTypes;
+		cycleAnimSet_.loadAnimationSet(CYCLE_ANIMATION_SET, dataGroupTypes, renderer_);
+	}
+	else {
+		std::cerr << "Animation set not found: " << resPath_ + CYCLE_ANIMATION_SET << std::endl;
+	}
+
 	keyboard_.UP = SDL_SCANCODE_W;
 	keyboard_.DOWN = SDL_SCANCODE_S;
 	keyboard_.LEFT = SDL_SCANCODE_A;
 	keyboard_.RIGHT = SDL_SCANCODE_D;
 	cameraController_.isLerping = true;
 	cameraController_.lerp = 10.0f;
-	cameraController_.target = &cameraTarget_;
+	cameraController_.target = &player_;
 	reset();
 }
 
@@ -70,9 +96,7 @@ void LightcyclesGame::update(float elapsedSeconds) {
 	}
 
 	cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
-	cameraTarget_.x = static_cast<float>(player_.position().x * CELL_SIZE + CELL_SIZE / 2);
-	cameraTarget_.y = static_cast<float>(player_.position().y * CELL_SIZE + CELL_SIZE / 2);
-	cameraController_.update(camera_, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE);
+	cameraController_.update(renderContext_.camera, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE);
 
 	stepAccumulator_ += std::min(elapsedSeconds, 0.25f);
 	while (result_ == GameResult::Running && stepAccumulator_ >= MOVE_STEP_SECONDS) {
@@ -81,18 +105,23 @@ void LightcyclesGame::update(float elapsedSeconds) {
 	}
 }
 
-void LightcyclesGame::render() const {
+void LightcyclesGame::render() {
 	SDL_SetRenderDrawColor(renderer_, 0, 0, 0, SDL_ALPHA_OPAQUE);
 	SDL_RenderClear(renderer_);
 
-	const SDL_Rect arena = { -camera_.x, -camera_.y, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE };
+	const SDL_Rect& camera = renderContext_.camera;
+	const SDL_Rect arena = { -camera.x, -camera.y, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE };
 	SDL_SetRenderDrawColor(renderer_, 22, 32, 45, SDL_ALPHA_OPAQUE);
 	SDL_RenderDrawRect(renderer_, &arena);
 
+	drawTrail(player_);
 	for (const Cycle& enemy : enemies_) {
-		drawCycle(enemy);
+		drawTrail(enemy);
 	}
-	drawCycle(player_);
+	for (Cycle& enemy : enemies_) {
+		enemy.draw(renderContext_);
+	}
+	player_.draw(renderContext_);
 
 	SDL_Rect statusStrip = { 0, 0, WINDOW_WIDTH, 3 };
 	switch (result_) {
@@ -125,38 +154,11 @@ std::size_t LightcyclesGame::gridIndex(int x, int y) const {
 	return static_cast<std::size_t>(y * GRID_WIDTH + x);
 }
 
-bool LightcyclesGame::isSafeTurn(const Cycle& cycle, Direction direction) const {
-	const SDL_Point next = cycle.nextPosition(direction);
-	return !isOccupied(next.x, next.y);
-}
-
-void LightcyclesGame::chooseEnemyDirection(Cycle& enemy) {
-	const Direction forward = enemy.direction();
-	const Direction left = static_cast<Direction>((static_cast<int>(forward) + 3) % 4);
-	const Direction right = static_cast<Direction>((static_cast<int>(forward) + 1) % 4);
-	const bool forwardSafe = isSafeTurn(enemy, forward);
-	const bool leftSafe = isSafeTurn(enemy, left);
-	const bool rightSafe = isSafeTurn(enemy, right);
-
-	if (forwardSafe && getRandomNumber(100) < 78) {
-		return;
-	}
-
-	if (leftSafe && rightSafe) {
-		enemy.setDirection(getRandomNumber(2) == 0 ? left : right);
-	}
-	else if (leftSafe) {
-		enemy.setDirection(left);
-	}
-	else if (rightSafe) {
-		enemy.setDirection(right);
-	}
-}
-
 void LightcyclesGame::updateCycles() {
-	for (Cycle& enemy : enemies_) {
-		if (enemy.alive()) {
-			chooseEnemyDirection(enemy);
+	const ArenaView arena{ GRID_WIDTH, GRID_HEIGHT, occupied_ };
+	for (std::size_t index = 0; index < enemies_.size(); ++index) {
+		if (enemies_[index].alive()) {
+			enemies_[index].setDirection(brains_[index]->decide(enemies_[index], player_, arena));
 		}
 	}
 
@@ -216,35 +218,29 @@ void LightcyclesGame::updateCycles() {
 
 void LightcyclesGame::reset() {
 	std::fill(occupied_.begin(), occupied_.end(), 0);
-	player_.reset({ GRID_WIDTH / 4, GRID_HEIGHT / 2 }, Direction::East);
-	occupied_[gridIndex(GRID_WIDTH / 4, GRID_HEIGHT / 2)] = 1;
-
-	const SDL_Point starts[] = {
-		{ GRID_WIDTH * 3 / 4, GRID_HEIGHT / 2 },
-		{ GRID_WIDTH / 2, GRID_HEIGHT / 4 },
-		{ GRID_WIDTH / 2, GRID_HEIGHT * 3 / 4 }
-	};
-	const Direction directions[] = {
-		Direction::West,
-		Direction::South,
-		Direction::North
-	};
+	const SDL_Point playerStart = { GRID_WIDTH / 4, GRID_HEIGHT / 2 };
+	player_.reset(playerStart, Direction::East);
+	occupied_[gridIndex(playerStart.x, playerStart.y)] = 1;
 
 	for (std::size_t index = 0; index < enemies_.size(); ++index) {
-		enemies_[index].reset(starts[index], directions[index]);
-		occupied_[gridIndex(starts[index].x, starts[index].y)] = 1;
+		const EnemySpec& spec = ENEMY_SPECS[index];
+		const SDL_Point start = { GRID_WIDTH * spec.startPercent.x / 100,
+			GRID_HEIGHT * spec.startPercent.y / 100 };
+		enemies_[index].reset(start, spec.direction);
+		occupied_[gridIndex(start.x, start.y)] = 1;
 	}
-	cameraTarget_.x = static_cast<float>(player_.position().x * CELL_SIZE + CELL_SIZE / 2);
-	cameraTarget_.y = static_cast<float>(player_.position().y * CELL_SIZE + CELL_SIZE / 2);
-	cameraController_.deltaTime = 0.016f;
-	cameraController_.update(camera_, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE);
+	renderContext_.camera.x = std::clamp(static_cast<int>(player_.x) - WINDOW_WIDTH / 2,
+		0, WORLD_WIDTH * CELL_SIZE - WINDOW_WIDTH);
+	renderContext_.camera.y = std::clamp(static_cast<int>(player_.y) - WINDOW_HEIGHT / 2,
+		0, WORLD_HEIGHT * CELL_SIZE - WINDOW_HEIGHT);
 	result_ = GameResult::Running;
 	stepAccumulator_ = 0;
 }
 
-void LightcyclesGame::drawCycle(const Cycle& cycle) const {
+void LightcyclesGame::drawTrail(const Cycle& cycle) const {
+	const SDL_Rect& camera = renderContext_.camera;
 	for (const SDL_Point point : cycle.trail()) {
-		const SDL_Rect glow = { point.x * CELL_SIZE - camera_.x, point.y * CELL_SIZE - camera_.y,
+		const SDL_Rect glow = { point.x * CELL_SIZE - camera.x, point.y * CELL_SIZE - camera.y,
 			CELL_SIZE, CELL_SIZE };
 		setDrawColor(cycle.glowColor());
 		SDL_RenderFillRect(renderer_, &glow);
@@ -253,16 +249,6 @@ void LightcyclesGame::drawCycle(const Cycle& cycle) const {
 		setDrawColor(cycle.coreColor());
 		SDL_RenderFillRect(renderer_, &core);
 	}
-
-	if (!cycle.alive()) {
-		return;
-	}
-
-	const SDL_Point position = cycle.position();
-	const SDL_Rect bike = { position.x * CELL_SIZE - camera_.x + 1,
-		position.y * CELL_SIZE - camera_.y + 1, CELL_SIZE - 2, CELL_SIZE - 2 };
-	setDrawColor(cycle.coreColor());
-	SDL_RenderFillRect(renderer_, &bike);
 }
 
 void LightcyclesGame::setDrawColor(SDL_Color color) const {
