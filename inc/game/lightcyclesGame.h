@@ -38,19 +38,17 @@ private:
 	static constexpr int WORLD_HEIGHT = 100;
 	static constexpr int GRID_WIDTH = WORLD_WIDTH;
 	static constexpr int GRID_HEIGHT = WORLD_HEIGHT;
-	static constexpr float MOVE_STEP_SECONDS = 0.1f;
+	static constexpr float CYCLE_SPEED = CELL_SIZE / 0.1f; // pixels per second
 	inline static const std::string CYCLE_ANIMATION_SET = "cycle.fdset";
-
-	struct PlannedMove {
-		Cycle* cycle;
-		SDL_Point destination;
-		bool crashed;
-	};
 
 	bool isInsideGrid(int x, int y) const;
 	bool isOccupied(int x, int y) const;
 	std::size_t gridIndex(int x, int y) const;
-	void updateCycles();
+	void updateCycles(float elapsedSeconds);
+	void moveCycle(Cycle& cycle, EnemyBrain* brain, float distance);
+	void lightCell(Cycle& cycle, SDL_Point cell);
+	void crashCollidingHeads();
+	void updateResult();
 	void reset();
 	void drawTrail(const Cycle& cycle) const;
 	void setDrawColor(SDL_Color color) const;
@@ -66,6 +64,5 @@ private:
 	std::vector<std::unique_ptr<EnemyBrain>> brains_;
 	std::vector<std::uint8_t> occupied_;
 	GameResult result_ = GameResult::Running;
-	float stepAccumulator_ = 0;
 	bool running_ = true;
 };

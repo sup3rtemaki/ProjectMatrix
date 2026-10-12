@@ -16,12 +16,11 @@ Cycle::Cycle(SDL_Color glowColor, SDL_Color coreColor, AnimationSet* animSet, in
 }
 
 void Cycle::reset(SDL_Point start, Direction direction) {
-	position_ = start;
+	x = static_cast<float>(start.x * cellSize_ + cellSize_ / 2);
+	y = static_cast<float>(start.y * cellSize_ + cellSize_ / 2);
 	direction_ = direction;
 	trail_.clear();
-	trail_.push_back(start);
 	alive_ = true;
-	updatePixelPosition();
 	changeAnimation(0, true);
 }
 
@@ -75,10 +74,14 @@ void Cycle::setDirectionFromAngle(float angle) {
 	}
 }
 
-void Cycle::advanceTo(SDL_Point destination) {
-	position_ = destination;
-	trail_.push_back(destination);
-	updatePixelPosition();
+void Cycle::advance(float distance) {
+	const SDL_Point offset = directionOffset(direction_);
+	x += offset.x * distance;
+	y += offset.y * distance;
+}
+
+void Cycle::addTrailCell(SDL_Point cell) {
+	trail_.push_back(cell);
 }
 
 SDL_Point Cycle::popOldestTrailPoint() {
@@ -92,7 +95,7 @@ void Cycle::crash() {
 }
 
 SDL_Point Cycle::position() const {
-	return position_;
+	return { static_cast<int>(std::floor(x / cellSize_)), static_cast<int>(std::floor(y / cellSize_)) };
 }
 
 Direction Cycle::direction() const {
@@ -105,7 +108,8 @@ SDL_Point Cycle::nextPosition() const {
 
 SDL_Point Cycle::nextPosition(Direction direction) const {
 	const SDL_Point offset = directionOffset(direction);
-	return { position_.x + offset.x, position_.y + offset.y };
+	const SDL_Point cell = position();
+	return { cell.x + offset.x, cell.y + offset.y };
 }
 
 const std::deque<SDL_Point>& Cycle::trail() const {
@@ -150,9 +154,4 @@ const char* Cycle::animationName(Direction direction) {
 	case Direction::West: return "left";
 	}
 	return "right";
-}
-
-void Cycle::updatePixelPosition() {
-	x = static_cast<float>(position_.x * cellSize_ + cellSize_ / 2);
-	y = static_cast<float>(position_.y * cellSize_ + cellSize_ / 2);
 }

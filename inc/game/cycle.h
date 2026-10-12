@@ -23,7 +23,8 @@ public:
 	void reset(SDL_Point start, Direction direction);
 	void setDirection(Direction direction);
 	void setDirectionFromAngle(float angle);
-	void advanceTo(SDL_Point destination);
+	void advance(float distance); // moves along the current direction, in pixels
+	void addTrailCell(SDL_Point cell);
 	SDL_Point popOldestTrailPoint();
 	void crash();
 
@@ -32,7 +33,7 @@ public:
 	void updateDamages() override {}
 	void die() override { crash(); }
 
-	SDL_Point position() const;
+	SDL_Point position() const; // grid cell under the cycle's head
 	Direction direction() const;
 	SDL_Point nextPosition() const;
 	SDL_Point nextPosition(Direction direction) const;
@@ -47,9 +48,6 @@ private:
 	static Direction turnRight(Direction direction);
 	static const char* animationName(Direction direction);
 
-	void updatePixelPosition();
-
-	SDL_Point position_{};
 	Direction direction_ = Direction::East;
 	std::deque<SDL_Point> trail_;
 	SDL_Color glowColor_{};

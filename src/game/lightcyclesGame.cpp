@@ -3,6 +3,7 @@
 #include "res_path.h"
 
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 
@@ -23,7 +24,7 @@ const EnemySpec ENEMY_SPECS[] = {
 	{ EnemyPersonality::Ambusher, { 105, 50, 5, 255 }, { 255, 155, 35, 255 }, { 10, 25 }, Direction::South },
 	{ EnemyPersonality::Strategist, { 65, 20, 115, 255 }, { 185, 95, 255, 255 }, { 50, 75 }, Direction::North },
 	{ EnemyPersonality::Coward, { 10, 95, 45, 255 }, { 60, 255, 130, 255 }, { 85, 70 }, Direction::West },
-	{ EnemyPersonality::Erratic, { 110, 95, 5, 255 }, { 255, 235, 50, 255 }, { 85, 80 }, Direction::West }
+	{ EnemyPersonality::Strategist, { 110, 95, 5, 255 }, { 255, 235, 50, 255 }, { 85, 80 }, Direction::West }
 };
 }
 
@@ -98,11 +99,7 @@ void LightcyclesGame::update(float elapsedSeconds) {
 	cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
 	cameraController_.update(renderContext_.camera, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE);
 
-	stepAccumulator_ += std::min(elapsedSeconds, 0.25f);
-	while (result_ == GameResult::Running && stepAccumulator_ >= MOVE_STEP_SECONDS) {
-		updateCycles();
-		stepAccumulator_ -= MOVE_STEP_SECONDS;
-	}
+	updateCycles(std::min(elapsedSeconds, 0.25f));
 }
 
 void LightcyclesGame::render() {
@@ -154,58 +151,79 @@ std::size_t LightcyclesGame::gridIndex(int x, int y) const {
 	return static_cast<std::size_t>(y * GRID_WIDTH + x);
 }
 
-void LightcyclesGame::updateCycles() {
-	const ArenaView arena{ GRID_WIDTH, GRID_HEIGHT, occupied_ };
-	for (std::size_t index = 0; index < enemies_.size(); ++index) {
-		if (enemies_[index].alive()) {
-			enemies_[index].setDirection(brains_[index]->decide(enemies_[index], player_, arena));
+void LightcyclesGame::updateCycles(float elapsedSeconds) {
+	const float distance = CYCLE_SPEED * elapsedSeconds;
+	// Sub-steps of at most half a cell so no grid cell is skipped.
+	const int steps = std::max(1, static_cast<int>(std::ceil(distance / (CELL_SIZE / 2.0f))));
+
+	for (int step = 0; step < steps && result_ == GameResult::Running; ++step) {
+		const float stepDistance = distance / steps;
+		moveCycle(player_, nullptr, stepDistance);
+		for (std::size_t index = 0; index < enemies_.size(); ++index) {
+			moveCycle(enemies_[index], brains_[index].get(), stepDistance);
 		}
+		crashCollidingHeads();
+		updateResult();
+	}
+}
+
+void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, float distance) {
+	if (!cycle.alive()) {
+		return;
 	}
 
-	std::vector<PlannedMove> moves;
+	const SDL_Point before = cycle.position();
+	cycle.advance(distance);
+	const SDL_Point after = cycle.position();
+	if (before.x == after.x && before.y == after.y) {
+		return;
+	}
+
+	lightCell(cycle, before);
+	if (isOccupied(after.x, after.y)) {
+		cycle.crash();
+		return;
+	}
+
+	if (brain != nullptr) {
+		const ArenaView arena{ GRID_WIDTH, GRID_HEIGHT, occupied_ };
+		cycle.setDirection(brain->decide(cycle, player_, arena));
+	}
+}
+
+void LightcyclesGame::lightCell(Cycle& cycle, SDL_Point cell) {
+	occupied_[gridIndex(cell.x, cell.y)] = 1;
+	cycle.addTrailCell(cell);
+	if (cycle.trail().size() > Cycle::MAX_TRAIL_LENGTH) {
+		const SDL_Point expired = cycle.popOldestTrailPoint();
+		occupied_[gridIndex(expired.x, expired.y)] = 0;
+	}
+}
+
+void LightcyclesGame::crashCollidingHeads() {
+	std::vector<Cycle*> alive;
 	if (player_.alive()) {
-		moves.push_back({ &player_, player_.nextPosition(), false });
+		alive.push_back(&player_);
 	}
 	for (Cycle& enemy : enemies_) {
 		if (enemy.alive()) {
-			moves.push_back({ &enemy, enemy.nextPosition(), false });
+			alive.push_back(&enemy);
 		}
 	}
 
-	for (PlannedMove& move : moves) {
-		move.crashed = isOccupied(move.destination.x, move.destination.y);
-	}
-
-	for (std::size_t first = 0; first < moves.size(); ++first) {
-		for (std::size_t second = first + 1; second < moves.size(); ++second) {
-			const SDL_Point firstPosition = moves[first].cycle->position();
-			const SDL_Point secondPosition = moves[second].cycle->position();
-			const bool sameCell = moves[first].destination.x == moves[second].destination.x
-				&& moves[first].destination.y == moves[second].destination.y;
-			const bool crossed = moves[first].destination.x == secondPosition.x
-				&& moves[first].destination.y == secondPosition.y
-				&& moves[second].destination.x == firstPosition.x
-				&& moves[second].destination.y == firstPosition.y;
-			if (sameCell || crossed) {
-				moves[first].crashed = true;
-				moves[second].crashed = true;
+	for (std::size_t first = 0; first < alive.size(); ++first) {
+		for (std::size_t second = first + 1; second < alive.size(); ++second) {
+			const SDL_Point a = alive[first]->position();
+			const SDL_Point b = alive[second]->position();
+			if (a.x == b.x && a.y == b.y) {
+				alive[first]->crash();
+				alive[second]->crash();
 			}
 		}
 	}
+}
 
-	for (PlannedMove& move : moves) {
-		if (move.crashed) {
-			move.cycle->crash();
-			continue;
-		}
-		move.cycle->advanceTo(move.destination);
-		if (move.cycle->trail().size() > Cycle::MAX_TRAIL_LENGTH) {
-			const SDL_Point expired = move.cycle->popOldestTrailPoint();
-			occupied_[gridIndex(expired.x, expired.y)] = 0;
-		}
-		occupied_[gridIndex(move.destination.x, move.destination.y)] = 1;
-	}
-
+void LightcyclesGame::updateResult() {
 	const bool anyEnemyAlive = std::any_of(enemies_.begin(), enemies_.end(),
 		[](const Cycle& enemy) { return enemy.alive(); });
 	if (!player_.alive()) {
@@ -220,21 +238,18 @@ void LightcyclesGame::reset() {
 	std::fill(occupied_.begin(), occupied_.end(), 0);
 	const SDL_Point playerStart = { GRID_WIDTH / 4, GRID_HEIGHT / 2 };
 	player_.reset(playerStart, Direction::East);
-	occupied_[gridIndex(playerStart.x, playerStart.y)] = 1;
 
 	for (std::size_t index = 0; index < enemies_.size(); ++index) {
 		const EnemySpec& spec = ENEMY_SPECS[index];
 		const SDL_Point start = { GRID_WIDTH * spec.startPercent.x / 100,
 			GRID_HEIGHT * spec.startPercent.y / 100 };
 		enemies_[index].reset(start, spec.direction);
-		occupied_[gridIndex(start.x, start.y)] = 1;
 	}
 	renderContext_.camera.x = std::clamp(static_cast<int>(player_.x) - WINDOW_WIDTH / 2,
 		0, WORLD_WIDTH * CELL_SIZE - WINDOW_WIDTH);
 	renderContext_.camera.y = std::clamp(static_cast<int>(player_.y) - WINDOW_HEIGHT / 2,
 		0, WORLD_HEIGHT * CELL_SIZE - WINDOW_HEIGHT);
 	result_ = GameResult::Running;
-	stepAccumulator_ = 0;
 }
 
 void LightcyclesGame::drawTrail(const Cycle& cycle) const {
