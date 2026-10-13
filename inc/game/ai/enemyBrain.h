@@ -9,11 +9,22 @@
 class EnemyBrain {
 public:
 	virtual ~EnemyBrain() = default;
-	virtual Direction decide(const Cycle& self, const Cycle& player, const ArenaView& arena) = 0;
+
+	// Goes for a power-up when the personality wants it enough, otherwise acts on its own style.
+	Direction decide(const Cycle& self, const Cycle& player, const ArenaView& arena);
 
 protected:
+	virtual Direction act(const Cycle& self, const Cycle& player, const ArenaView& arena) = 0;
+	// How much this personality wants the power-up, from 0 to 1.
+	virtual float pickupAppetite(ObjectType type, const Cycle& self, const Cycle& player) const = 0;
+	// Power-ups farther than this (in cells) are ignored.
+	virtual int pickupSightRange() const { return 16; }
+
+	static float preference(ObjectType type, float boost, float longTrail);
+
 	static constexpr int MIN_SAFE_SPACE = 30;
 	static constexpr int SPACE_LIMIT = 400;
+	static constexpr float MIN_PURSUIT_SCORE = 0.25f;
 
 	static int distance(SDL_Point from, SDL_Point to);
 

@@ -3,8 +3,15 @@
 #include "ai/enemyBrain.h"
 
 class ErraticBrain : public EnemyBrain {
-public:
-	Direction decide(const Cycle& self, const Cycle&, const ArenaView& arena) override {
+protected:
+	Direction act(const Cycle& self, const Cycle&, const ArenaView& arena) override {
 		return wander(self, arena, 70);
 	}
+
+	// Half-hearted about everything.
+	float pickupAppetite(ObjectType type, const Cycle&, const Cycle&) const override {
+		return preference(type, 0.5f, 0.5f);
+	}
+
+	int pickupSightRange() const override { return 12; }
 };

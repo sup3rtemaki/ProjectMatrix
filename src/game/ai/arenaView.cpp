@@ -4,7 +4,8 @@
 
 bool ArenaView::isBlocked(int x, int y) const {
 	return x < 0 || x >= width || y < 0 || y >= height
-		|| occupied[static_cast<std::size_t>(y * width + x)] != 0;
+		|| occupied[static_cast<std::size_t>(y * width + x)] != 0
+		|| hazards[static_cast<std::size_t>(y * width + x)] != 0;
 }
 
 int ArenaView::reachableCells(SDL_Point start, int limit) const {

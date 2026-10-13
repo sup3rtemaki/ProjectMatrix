@@ -1,5 +1,7 @@
 #include "lightcyclesGame.h"
 
+#include "level/levelLoader.h"
+#include "level/spawnPlanner.h"
 #include "res_path.h"
 
 #include <algorithm>
@@ -10,33 +12,13 @@
 namespace {
 constexpr SDL_Color PLAYER_GLOW = { 0, 90, 135, 255 };
 constexpr SDL_Color PLAYER_CORE = { 20, 235, 255, 255 };
-
-struct EnemySpec {
-	EnemyPersonality personality;
-	SDL_Color glow;
-	SDL_Color core;
-	SDL_Point startPercent; // position in the arena, as a percentage of its size
-	Direction direction;
-};
-
-const EnemySpec ENEMY_SPECS[] = {
-	{ EnemyPersonality::Aggressor, { 105, 15, 30, 255 }, { 255, 45, 75, 255 }, { 90, 50 }, Direction::West },
-	{ EnemyPersonality::Ambusher, { 105, 50, 5, 255 }, { 255, 155, 35, 255 }, { 10, 25 }, Direction::South },
-	{ EnemyPersonality::Strategist, { 65, 20, 115, 255 }, { 185, 95, 255, 255 }, { 50, 75 }, Direction::North },
-	{ EnemyPersonality::Coward, { 10, 95, 45, 255 }, { 60, 255, 130, 255 }, { 85, 70 }, Direction::West },
-	{ EnemyPersonality::Strategist, { 110, 95, 5, 255 }, { 255, 235, 50, 255 }, { 85, 80 }, Direction::West }
-};
 }
 
 LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer)
 	: renderer_(renderer),
 	resPath_(getResourcePath()),
 	player_(PLAYER_GLOW, PLAYER_CORE, &cycleAnimSet_, CELL_SIZE),
-	occupied_(static_cast<std::size_t>(GRID_WIDTH * GRID_HEIGHT), 0) {
-	for (const EnemySpec& spec : ENEMY_SPECS) {
-		enemies_.emplace_back(spec.glow, spec.core, &cycleAnimSet_, CELL_SIZE);
-		brains_.push_back(createEnemyBrain(spec.personality));
-	}
+	objects_(CELL_SIZE) {
 	renderContext_.renderer = renderer_;
 	renderContext_.camera = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
 
@@ -55,7 +37,67 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer)
 	cameraController_.isLerping = true;
 	cameraController_.lerp = 10.0f;
 	cameraController_.target = &player_;
+
+	levelCount_ = countLevels();
+	if (levelCount_ == 0 || !loadLevel(0)) {
+		std::cerr << "No playable level in " << resPath_ + LEVELS_FOLDER << std::endl;
+		running_ = false;
+	}
+}
+
+std::string LightcyclesGame::levelPath(std::size_t index) const {
+	return resPath_ + LEVELS_FOLDER + "level" + std::to_string(index + 1) + ".json";
+}
+
+std::size_t LightcyclesGame::countLevels() const {
+	std::size_t count = 0;
+	while (std::ifstream(levelPath(count)).good()) {
+		++count;
+	}
+	return count;
+}
+
+bool LightcyclesGame::isPlayable(const LevelDefinition& level) const {
+	if (level.width < MIN_GRID_WIDTH || level.height < MIN_GRID_HEIGHT) {
+		std::cerr << "Level " << level.name << " is smaller than the window ("
+			<< MIN_GRID_WIDTH << "x" << MIN_GRID_HEIGHT << " cells minimum)" << std::endl;
+		return false;
+	}
+	if (level.enemies.empty()) {
+		std::cerr << "Level " << level.name << " has no enemies" << std::endl;
+		return false;
+	}
+
+	std::vector<SpawnPoint> spawns = { level.player };
+	for (const EnemyDefinition& enemy : level.enemies) {
+		spawns.push_back(enemy.spawn);
+	}
+	for (const SpawnPoint& spawn : spawns) {
+		if (spawn.cell && (spawn.cell->x < 1 || spawn.cell->x >= level.width - 1
+			|| spawn.cell->y < 1 || spawn.cell->y >= level.height - 1)) {
+			std::cerr << "Level " << level.name << " has a spawn outside the arena" << std::endl;
+			return false;
+		}
+	}
+	return true;
+}
+
+bool LightcyclesGame::loadLevel(std::size_t index) {
+	std::optional<LevelDefinition> loaded = LevelLoader::load(levelPath(index));
+	if (!loaded || !isPlayable(*loaded)) {
+		return false;
+	}
+
+	level_ = std::move(*loaded);
+	levelIndex_ = index;
+	enemies_.clear();
+	brains_.clear();
+	for (const EnemyDefinition& definition : level_.enemies) {
+		enemies_.emplace_back(definition.glow, definition.core, &cycleAnimSet_, CELL_SIZE);
+		brains_.push_back(createEnemyBrain(definition.personality));
+	}
 	reset();
+	return true;
 }
 
 bool LightcyclesGame::isRunning() const {
@@ -75,7 +117,11 @@ void LightcyclesGame::handleEvent(SDL_Event& event) {
 		}
 		if (event.key.keysym.scancode == SDL_SCANCODE_RETURN
 			&& result_ != GameResult::Running) {
-			reset();
+			const bool advanced = result_ == GameResult::PlayerWon
+				&& loadLevel((levelIndex_ + 1) % levelCount_);
+			if (!advanced) {
+				reset();
+			}
 			return;
 		}
 	}
@@ -97,7 +143,7 @@ void LightcyclesGame::update(float elapsedSeconds) {
 	}
 
 	cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
-	cameraController_.update(renderContext_.camera, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE);
+	cameraController_.update(renderContext_.camera, level_.width * CELL_SIZE, level_.height * CELL_SIZE);
 
 	updateCycles(std::min(elapsedSeconds, 0.25f));
 }
@@ -107,10 +153,11 @@ void LightcyclesGame::render() {
 	SDL_RenderClear(renderer_);
 
 	const SDL_Rect& camera = renderContext_.camera;
-	const SDL_Rect arena = { -camera.x, -camera.y, WORLD_WIDTH * CELL_SIZE, WORLD_HEIGHT * CELL_SIZE };
+	const SDL_Rect arena = { -camera.x, -camera.y, level_.width * CELL_SIZE, level_.height * CELL_SIZE };
 	SDL_SetRenderDrawColor(renderer_, 22, 32, 45, SDL_ALPHA_OPAQUE);
 	SDL_RenderDrawRect(renderer_, &arena);
 
+	objects_.draw(renderContext_);
 	drawTrail(player_);
 	for (const Cycle& enemy : enemies_) {
 		drawTrail(enemy);
@@ -140,7 +187,7 @@ void LightcyclesGame::render() {
 }
 
 bool LightcyclesGame::isInsideGrid(int x, int y) const {
-	return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
+	return x >= 0 && x < level_.width && y >= 0 && y < level_.height;
 }
 
 bool LightcyclesGame::isOccupied(int x, int y) const {
@@ -148,32 +195,41 @@ bool LightcyclesGame::isOccupied(int x, int y) const {
 }
 
 std::size_t LightcyclesGame::gridIndex(int x, int y) const {
-	return static_cast<std::size_t>(y * GRID_WIDTH + x);
+	return static_cast<std::size_t>(y * level_.width + x);
 }
 
 void LightcyclesGame::updateCycles(float elapsedSeconds) {
-	const float distance = CYCLE_SPEED * elapsedSeconds;
+	float fastest = 1.0f;
+	player_.effects().update(elapsedSeconds);
+	fastest = std::max(fastest, player_.effects().speedMultiplier());
+	for (Cycle& enemy : enemies_) {
+		enemy.effects().update(elapsedSeconds);
+		fastest = std::max(fastest, enemy.effects().speedMultiplier());
+	}
+	objects_.update(elapsedSeconds, occupied_);
+
 	// Sub-steps of at most half a cell so no grid cell is skipped.
-	const int steps = std::max(1, static_cast<int>(std::ceil(distance / (CELL_SIZE / 2.0f))));
+	const float maxDistance = CYCLE_SPEED * fastest * elapsedSeconds;
+	const int steps = std::max(1, static_cast<int>(std::ceil(maxDistance / (CELL_SIZE / 2.0f))));
 
 	for (int step = 0; step < steps && result_ == GameResult::Running; ++step) {
-		const float stepDistance = distance / steps;
-		moveCycle(player_, nullptr, stepDistance);
+		const float stepSeconds = elapsedSeconds / steps;
+		moveCycle(player_, nullptr, stepSeconds);
 		for (std::size_t index = 0; index < enemies_.size(); ++index) {
-			moveCycle(enemies_[index], brains_[index].get(), stepDistance);
+			moveCycle(enemies_[index], brains_[index].get(), stepSeconds);
 		}
 		crashCollidingHeads();
 		updateResult();
 	}
 }
 
-void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, float distance) {
+void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, float elapsedSeconds) {
 	if (!cycle.alive()) {
 		return;
 	}
 
 	const SDL_Point before = cycle.position();
-	cycle.advance(distance);
+	cycle.advance(CYCLE_SPEED * cycle.effects().speedMultiplier() * elapsedSeconds);
 	const SDL_Point after = cycle.position();
 	if (before.x == after.x && before.y == after.y) {
 		return;
@@ -185,8 +241,14 @@ void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, float distance)
 		return;
 	}
 
+	objects_.touch(cycle, after);
+	if (!cycle.alive()) {
+		return;
+	}
+
 	if (brain != nullptr) {
-		const ArenaView arena{ GRID_WIDTH, GRID_HEIGHT, occupied_ };
+		const ArenaView arena{ level_.width, level_.height, occupied_, objects_.dangerGrid(),
+			objects_.pickups() };
 		cycle.setDirection(brain->decide(cycle, player_, arena));
 	}
 }
@@ -194,7 +256,7 @@ void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, float distance)
 void LightcyclesGame::lightCell(Cycle& cycle, SDL_Point cell) {
 	occupied_[gridIndex(cell.x, cell.y)] = 1;
 	cycle.addTrailCell(cell);
-	if (cycle.trail().size() > Cycle::MAX_TRAIL_LENGTH) {
+	while (cycle.trail().size() > cycle.maxTrailLength()) {
 		const SDL_Point expired = cycle.popOldestTrailPoint();
 		occupied_[gridIndex(expired.x, expired.y)] = 0;
 	}
@@ -235,20 +297,23 @@ void LightcyclesGame::updateResult() {
 }
 
 void LightcyclesGame::reset() {
-	std::fill(occupied_.begin(), occupied_.end(), 0);
-	const SDL_Point playerStart = { GRID_WIDTH / 4, GRID_HEIGHT / 2 };
-	player_.reset(playerStart, Direction::East);
+	occupied_.assign(static_cast<std::size_t>(level_.width * level_.height), 0);
 
-	for (std::size_t index = 0; index < enemies_.size(); ++index) {
-		const EnemySpec& spec = ENEMY_SPECS[index];
-		const SDL_Point start = { GRID_WIDTH * spec.startPercent.x / 100,
-			GRID_HEIGHT * spec.startPercent.y / 100 };
-		enemies_[index].reset(start, spec.direction);
+	const std::vector<ResolvedSpawn> spawns = resolveSpawns(level_);
+	std::vector<SDL_Point> startCells;
+	for (const ResolvedSpawn& spawn : spawns) {
+		startCells.push_back(spawn.cell);
 	}
+	player_.reset(spawns[0].cell, spawns[0].direction);
+	for (std::size_t index = 0; index < enemies_.size(); ++index) {
+		enemies_[index].reset(spawns[index + 1].cell, spawns[index + 1].direction);
+	}
+	objects_.reset(level_, startCells, occupied_);
+
 	renderContext_.camera.x = std::clamp(static_cast<int>(player_.x) - WINDOW_WIDTH / 2,
-		0, WORLD_WIDTH * CELL_SIZE - WINDOW_WIDTH);
+		0, level_.width * CELL_SIZE - WINDOW_WIDTH);
 	renderContext_.camera.y = std::clamp(static_cast<int>(player_.y) - WINDOW_HEIGHT / 2,
-		0, WORLD_HEIGHT * CELL_SIZE - WINDOW_HEIGHT);
+		0, level_.height * CELL_SIZE - WINDOW_HEIGHT);
 	result_ = GameResult::Running;
 }
 

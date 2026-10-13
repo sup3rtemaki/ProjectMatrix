@@ -20,6 +20,7 @@ void Cycle::reset(SDL_Point start, Direction direction) {
 	y = static_cast<float>(start.y * cellSize_ + cellSize_ / 2);
 	direction_ = direction;
 	trail_.clear();
+	effects_.clear();
 	alive_ = true;
 	changeAnimation(0, true);
 }

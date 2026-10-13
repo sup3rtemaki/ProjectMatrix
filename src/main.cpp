@@ -14,7 +14,7 @@ int main(int, char**) {
 
 	SDL_Window* window = SDL_CreateWindow("Vertex2D Lightcycles",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		LightcyclesGame::WINDOW_WIDTH, LightcyclesGame::WINDOW_HEIGHT, SDL_WINDOW_SHOWN);
+		LightcyclesGame::WINDOW_WIDTH, LightcyclesGame::WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 	if (window == nullptr) {
 		SDL_Quit();
 		return 1;

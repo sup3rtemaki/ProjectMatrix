@@ -160,6 +160,12 @@
     </Link>
   </ItemDefinitionGroup>
 
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)submodules\Vertex2D\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\game\cycle.cpp" />
@@ -167,6 +173,11 @@
     <ClCompile Include="src\game\ai\arenaView.cpp" />
     <ClCompile Include="src\game\ai\enemyBrain.cpp" />
     <ClCompile Include="src\game\ai\enemyPersonality.cpp" />
+    <ClCompile Include="src\game\effects\cycleEffects.cpp" />
+    <ClCompile Include="src\game\level\levelLoader.cpp" />
+    <ClCompile Include="src\game\level\spawnPlanner.cpp" />
+    <ClCompile Include="src\game\rendering\shapes.cpp" />
+    <ClCompile Include="src\game\world\arenaObjects.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\game\cycle.h" />
@@ -179,6 +190,19 @@
     <ClInclude Include="inc\game\ai\personalities\cowardBrain.h" />
     <ClInclude Include="inc\game\ai\personalities\erraticBrain.h" />
     <ClInclude Include="inc\game\ai\personalities\strategistBrain.h" />
+    <ClInclude Include="inc\game\effects\cycleEffects.h" />
+    <ClInclude Include="inc\game\level\levelDefinition.h" />
+    <ClInclude Include="inc\game\level\levelLoader.h" />
+    <ClInclude Include="inc\game\level\spawnPlanner.h" />
+    <ClInclude Include="inc\game\world\objectType.h" />
+    <ClInclude Include="inc\game\rendering\shapes.h" />
+    <ClInclude Include="inc\game\world\arenaObjects.h" />
+    <ClInclude Include="inc\game\world\worldObject.h" />
+    <ClInclude Include="inc\game\world\obstacles\wall.h" />
+    <ClInclude Include="inc\game\world\pickups\boostPickup.h" />
+    <ClInclude Include="inc\game\world\pickups\longTrailPickup.h" />
+    <ClInclude Include="inc\game\world\traps\mineTrap.h" />
+    <ClInclude Include="inc\game\world\traps\slowTrap.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="submodules\Vertex2D\engine.vcxproj">

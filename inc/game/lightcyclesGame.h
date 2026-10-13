@@ -6,7 +6,9 @@
 #include "cycle.h"
 #include "inputCommand.h"
 #include "keyboardInput.h"
+#include "level/levelDefinition.h"
 #include "renderContext.h"
+#include "world/arenaObjects.h"
 
 #include <cstdint>
 #include <memory>
@@ -33,19 +35,23 @@ public:
 	void render();
 
 private:
-	static constexpr int CELL_SIZE = 12;
-	static constexpr int WORLD_WIDTH = 160;
-	static constexpr int WORLD_HEIGHT = 100;
-	static constexpr int GRID_WIDTH = WORLD_WIDTH;
-	static constexpr int GRID_HEIGHT = WORLD_HEIGHT;
+	static constexpr int CELL_SIZE = 8;
+	static constexpr int MIN_GRID_WIDTH = (WINDOW_WIDTH + CELL_SIZE - 1) / CELL_SIZE;
+	static constexpr int MIN_GRID_HEIGHT = (WINDOW_HEIGHT + CELL_SIZE - 1) / CELL_SIZE;
 	static constexpr float CYCLE_SPEED = CELL_SIZE / 0.1f; // pixels per second
 	inline static const std::string CYCLE_ANIMATION_SET = "cycle.fdset";
+	inline static const std::string LEVELS_FOLDER = "levels/"; // level1.json, level2.json, ...
+
+	std::string levelPath(std::size_t index) const;
+	std::size_t countLevels() const;
+	bool isPlayable(const LevelDefinition& level) const;
+	bool loadLevel(std::size_t index);
 
 	bool isInsideGrid(int x, int y) const;
 	bool isOccupied(int x, int y) const;
 	std::size_t gridIndex(int x, int y) const;
 	void updateCycles(float elapsedSeconds);
-	void moveCycle(Cycle& cycle, EnemyBrain* brain, float distance);
+	void moveCycle(Cycle& cycle, EnemyBrain* brain, float elapsedSeconds);
 	void lightCell(Cycle& cycle, SDL_Point cell);
 	void crashCollidingHeads();
 	void updateResult();
@@ -63,6 +69,10 @@ private:
 	std::vector<Cycle> enemies_;
 	std::vector<std::unique_ptr<EnemyBrain>> brains_;
 	std::vector<std::uint8_t> occupied_;
+	ArenaObjects objects_;
+	LevelDefinition level_;
+	std::size_t levelIndex_ = 0;
+	std::size_t levelCount_ = 0;
 	GameResult result_ = GameResult::Running;
 	bool running_ = true;
 };

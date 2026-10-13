@@ -18,6 +18,37 @@ int EnemyBrain::distance(SDL_Point from, SDL_Point to) {
 	return std::abs(from.x - to.x) + std::abs(from.y - to.y);
 }
 
+float EnemyBrain::preference(ObjectType type, float boost, float longTrail) {
+	switch (type) {
+	case ObjectType::BoostPickup: return boost;
+	case ObjectType::LongTrailPickup: return longTrail;
+	default: return 0.0f;
+	}
+}
+
+Direction EnemyBrain::decide(const Cycle& self, const Cycle& player, const ArenaView& arena) {
+	const int sight = pickupSightRange();
+	const PickupSighting* target = nullptr;
+	float bestScore = MIN_PURSUIT_SCORE;
+	for (const PickupSighting& pickup : arena.pickups) {
+		const int away = distance(self.position(), pickup.cell);
+		if (away > sight) {
+			continue;
+		}
+		const float score = pickupAppetite(pickup.type, self, player)
+			* (1.0f - static_cast<float>(away) / static_cast<float>(sight));
+		if (score > bestScore) {
+			bestScore = score;
+			target = &pickup;
+		}
+	}
+
+	if (target != nullptr) {
+		return towards(self, arena, target->cell);
+	}
+	return act(self, player, arena);
+}
+
 Direction EnemyBrain::pickBest(const Cycle& self, const ArenaView& arena,
 	const std::function<float(SDL_Point)>& score) {
 	Direction best = self.direction();

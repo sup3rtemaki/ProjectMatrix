@@ -5,8 +5,8 @@
 #include <algorithm>
 
 class AmbusherBrain : public EnemyBrain {
-public:
-	Direction decide(const Cycle& self, const Cycle& player, const ArenaView& arena) override {
+protected:
+	Direction act(const Cycle& self, const Cycle& player, const ArenaView& arena) override {
 		const SDL_Point here = player.position();
 		if (distance(self.position(), here) <= CLOSE_RANGE) {
 			return towards(self, arena, here);
@@ -18,6 +18,13 @@ public:
 			std::clamp(here.y + (ahead.y - here.y) * LEAD_CELLS, 0, arena.height - 1) };
 		return towards(self, arena, target);
 	}
+
+	// Prefers a long trail to wall the player in.
+	float pickupAppetite(ObjectType type, const Cycle&, const Cycle&) const override {
+		return preference(type, 0.6f, 1.0f);
+	}
+
+	int pickupSightRange() const override { return 18; }
 
 private:
 	static constexpr int LEAD_CELLS = 12;

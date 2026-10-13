@@ -1,5 +1,6 @@
 #pragma once
 
+#include "effects/cycleEffects.h"
 #include "livingEntity.h"
 
 #include <cstddef>
@@ -42,6 +43,9 @@ public:
 	SDL_Color coreColor() const;
 	bool alive() const;
 
+	CycleEffects& effects() { return effects_; }
+	std::size_t maxTrailLength() const { return MAX_TRAIL_LENGTH + effects_.trailBonus(); }
+
 private:
 	static SDL_Point directionOffset(Direction direction);
 	static Direction turnLeft(Direction direction);
@@ -50,6 +54,7 @@ private:
 
 	Direction direction_ = Direction::East;
 	std::deque<SDL_Point> trail_;
+	CycleEffects effects_;
 	SDL_Color glowColor_{};
 	SDL_Color coreColor_{};
 	int cellSize_;
