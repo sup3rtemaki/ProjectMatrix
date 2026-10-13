@@ -1,0 +1,20 @@
+{
+  "name": "Open Arena",
+  "size": [160, 100],
+  "respawnSeconds": 15,
+  "player": { "position": [40, 50], "direction": "east" },
+  "enemies": [
+    { "personality": "aggressor", "position": [144, 50], "direction": "west" },
+    { "personality": "ambusher", "position": [16, 25], "direction": "south" },
+    { "personality": "strategist", "position": [80, 75], "direction": "north" },
+    { "personality": "coward", "position": [136, 70], "direction": "west" },
+    { "personality": "strategist", "position": [136, 80], "direction": "west" }
+  ],
+  "scatter": [
+    { "type": "wall", "count": 14, "minLength": 3, "maxLength": 10 },
+    { "type": "boost", "count": 3 },
+    { "type": "longTrail", "count": 3 },
+    { "type": "mine", "count": 5 },
+    { "type": "slow", "count": 5 }
+  ]
+}

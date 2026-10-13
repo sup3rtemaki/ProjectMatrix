@@ -22,7 +22,24 @@ void Cycle::reset(SDL_Point start, Direction direction) {
 	trail_.clear();
 	effects_.clear();
 	alive_ = true;
+	lives_ = INITIAL_LIVES;
+	respawnTimer_ = 0.0f;
 	changeAnimation(0, true);
+}
+
+void Cycle::respawn(SDL_Point start, Direction direction) {
+	x = static_cast<float>(start.x * cellSize_ + cellSize_ / 2);
+	y = static_cast<float>(start.y * cellSize_ + cellSize_ / 2);
+	direction_ = direction;
+	trail_.clear();
+	effects_.clear();
+	alive_ = true;
+	respawnTimer_ = 0.0f;
+	changeAnimation(0, true);
+}
+
+void Cycle::clearTrail() {
+	trail_.clear();
 }
 
 void Cycle::setDirection(Direction direction) {
@@ -42,7 +59,7 @@ void Cycle::changeAnimation(int newState, bool, string animName) {
 }
 
 void Cycle::draw(const RenderContext& context) {
-	if (!alive_) {
+	if (!alive_ || isRespawning()) {
 		return;
 	}
 

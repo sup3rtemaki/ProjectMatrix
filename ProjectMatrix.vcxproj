@@ -177,6 +177,10 @@
     <ClCompile Include="src\game\level\levelLoader.cpp" />
     <ClCompile Include="src\game\level\spawnPlanner.cpp" />
     <ClCompile Include="src\game\rendering\shapes.cpp" />
+    <ClCompile Include="src\game\ui\ui.cpp" />
+    <ClCompile Include="src\game\ui\hudUi.cpp" />
+    <ClCompile Include="src\game\menu\mainMenu.cpp" />
+    <ClCompile Include="src\game\systems\mainMenuSystem.cpp" />
     <ClCompile Include="src\game\world\arenaObjects.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -196,6 +200,12 @@
     <ClInclude Include="inc\game\level\spawnPlanner.h" />
     <ClInclude Include="inc\game\world\objectType.h" />
     <ClInclude Include="inc\game\rendering\shapes.h" />
+    <ClInclude Include="inc\game\ui\ui.h" />
+    <ClInclude Include="inc\game\ui\hudUi.h" />
+    <ClInclude Include="inc\game\menu\gameConfig.h" />
+    <ClInclude Include="inc\game\menu\menu.h" />
+    <ClInclude Include="inc\game\menu\mainMenu.h" />
+    <ClInclude Include="inc\game\systems\mainMenuSystem.h" />
     <ClInclude Include="inc\game\world\arenaObjects.h" />
     <ClInclude Include="inc\game\world\worldObject.h" />
     <ClInclude Include="inc\game\world\obstacles\wall.h" />

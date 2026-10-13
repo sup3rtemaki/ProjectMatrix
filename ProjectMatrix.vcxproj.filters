@@ -45,6 +45,18 @@
     <ClCompile Include="src\game\rendering\shapes.cpp">
       <Filter>Arquivos de Origem</Filter>
     </ClCompile>
+    <ClCompile Include="src\game\ui\ui.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="src\game\ui\hudUi.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="src\game\menu\mainMenu.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="src\game\systems\mainMenuSystem.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
     <ClCompile Include="src\game\world\arenaObjects.cpp">
       <Filter>Arquivos de Origem</Filter>
     </ClCompile>
@@ -96,6 +108,24 @@
       <Filter>Arquivos de Cabeçalho</Filter>
     </ClInclude>
     <ClInclude Include="inc\game\rendering\shapes.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\game\ui\ui.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\game\ui\hudUi.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\game\menu\gameConfig.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\game\menu\menu.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\game\menu\mainMenu.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\game\systems\mainMenuSystem.h">
       <Filter>Arquivos de Cabeçalho</Filter>
     </ClInclude>
     <ClInclude Include="inc\game\world\arenaObjects.h">

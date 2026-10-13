@@ -7,7 +7,9 @@
 #include "inputCommand.h"
 #include "keyboardInput.h"
 #include "level/levelDefinition.h"
+#include "menu/gameConfig.h"
 #include "renderContext.h"
+#include "ui/hudUi.h"
 #include "world/arenaObjects.h"
 
 #include <cstdint>
@@ -26,6 +28,8 @@ class LightcyclesGame {
 public:
 	static constexpr int WINDOW_WIDTH = 960;
 	static constexpr int WINDOW_HEIGHT = 640;
+	static constexpr int HUD_HEIGHT = 36;
+	static constexpr int VIEWPORT_HEIGHT = WINDOW_HEIGHT - HUD_HEIGHT;
 
 	explicit LightcyclesGame(SDL_Renderer* renderer);
 
@@ -34,10 +38,16 @@ public:
 	void update(float elapsedSeconds);
 	void render();
 
+	std::vector<std::string> getAvailableLevelNames() const;
+	bool startMatch(const GameConfig& config);
+	void returnToMenu();
+	bool isExitRequested() const { return exitRequested_; }
+	bool isInMenu() const { return inMenu_; }
+
 private:
 	static constexpr int CELL_SIZE = 8;
 	static constexpr int MIN_GRID_WIDTH = (WINDOW_WIDTH + CELL_SIZE - 1) / CELL_SIZE;
-	static constexpr int MIN_GRID_HEIGHT = (WINDOW_HEIGHT + CELL_SIZE - 1) / CELL_SIZE;
+	static constexpr int MIN_GRID_HEIGHT = (VIEWPORT_HEIGHT + CELL_SIZE - 1) / CELL_SIZE;
 	static constexpr float CYCLE_SPEED = CELL_SIZE / 0.1f; // pixels per second
 	inline static const std::string CYCLE_ANIMATION_SET = "cycle.fdset";
 	inline static const std::string LEVELS_FOLDER = "levels/"; // level1.json, level2.json, ...
@@ -53,6 +63,11 @@ private:
 	void updateCycles(float elapsedSeconds);
 	void moveCycle(Cycle& cycle, EnemyBrain* brain, float elapsedSeconds);
 	void lightCell(Cycle& cycle, SDL_Point cell);
+	void handleCycleCrash(Cycle& cycle);
+	void clearCycleTrail(Cycle& cycle);
+	void updateCycleRespawn(Cycle& cycle, float elapsedSeconds);
+	bool findSafeRespawn(SDL_Point& outCell, Direction& outDir);
+	void respawnCycle(Cycle& cycle);
 	void crashCollidingHeads();
 	void updateResult();
 	void reset();
@@ -65,14 +80,19 @@ private:
 	KeyboardInput keyboard_;
 	CameraController cameraController_;
 	AnimationSet cycleAnimSet_;
+	HudUi hudUi_;
 	Cycle player_;
 	std::vector<Cycle> enemies_;
 	std::vector<std::unique_ptr<EnemyBrain>> brains_;
 	std::vector<std::uint8_t> occupied_;
+	std::vector<Cycle*> trailOwner_;
 	ArenaObjects objects_;
 	LevelDefinition level_;
 	std::size_t levelIndex_ = 0;
 	std::size_t levelCount_ = 0;
 	GameResult result_ = GameResult::Running;
 	bool running_ = true;
+	bool inMenu_ = true;
+	bool exitRequested_ = false;
+	GameConfig activeConfig_;
 };

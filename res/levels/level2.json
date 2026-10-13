@@ -1,0 +1,26 @@
+{
+  "name": "Crossroads",
+  "size": [200, 120],
+  "respawnSeconds": 10,
+  "enemies": [
+    { "personality": "aggressor" },
+    { "personality": "ambusher" },
+    { "personality": "strategist" },
+    { "personality": "coward" },
+    { "personality": "erratic" },
+    { "personality": "aggressor" }
+  ],
+  "objects": [
+    { "type": "wall", "cells": [99, 36, 2, 20] },
+    { "type": "wall", "cells": [99, 64, 2, 20] },
+    { "type": "wall", "cells": [70, 59, 22, 2] },
+    { "type": "wall", "cells": [108, 59, 22, 2] }
+  ],
+  "scatter": [
+    { "type": "wall", "count": 10, "minLength": 4, "maxLength": 14 },
+    { "type": "boost", "count": 4 },
+    { "type": "longTrail", "count": 4 },
+    { "type": "mine", "count": 12 },
+    { "type": "slow", "count": 8 }
+  ]
+}
