@@ -8,9 +8,12 @@
 #include "keyboardInput.h"
 #include "level/levelDefinition.h"
 #include "menu/gameConfig.h"
+#include "network/onlineMatchState.h"
 #include "renderContext.h"
 #include "ui/hudUi.h"
 #include "world/arenaObjects.h"
+
+class SteamSessionService;
 
 #include <cstdint>
 #include <memory>
@@ -34,7 +37,7 @@ public:
 	static constexpr int CAMERA_WIDTH = static_cast<int>(WINDOW_WIDTH * CAMERA_ZOOM);
 	static constexpr int CAMERA_HEIGHT = static_cast<int>(VIEWPORT_HEIGHT * CAMERA_ZOOM);
 
-	explicit LightcyclesGame(SDL_Renderer* renderer);
+	explicit LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* steamSession = nullptr);
 	~LightcyclesGame();
 
 	bool isRunning() const;
@@ -75,6 +78,7 @@ private:
 	void setDrawColor(SDL_Color color) const;
 
 	SDL_Renderer* renderer_;
+	SteamSessionService* steamSession_ = nullptr;
 	SDL_Texture* worldTexture_ = nullptr; // world drawn at camera size, then scaled to the game area
 	std::string resPath_;
 	RenderContext renderContext_;
@@ -86,6 +90,7 @@ private:
 	std::vector<Cycle> enemies_;
 	std::vector<std::unique_ptr<EnemyBrain>> brains_;
 	std::vector<float> enemyDecisionTimers_;
+	OnlineMatchState onlineMatch_;
 	ArenaObjects objects_;
 	LevelDefinition level_;
 	std::size_t levelIndex_ = 0;

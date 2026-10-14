@@ -50,7 +50,7 @@ int main(int, char**) {
 		SteamSessionService steamSession;
 		steamSession.initialize();
 
-		LightcyclesGame game(renderer);
+		LightcyclesGame game(renderer, &steamSession);
 		MainMenu mainMenu;
 		mainMenu.setRenderer(renderer);
 		mainMenu.setResourcePath(getResourcePath());
@@ -65,6 +65,18 @@ int main(int, char**) {
 		bool appRunning = true;
 
 		menuSystem.setStartGameCallback([&](const GameConfig& config) {
+			if (config.onlineMode) {
+				if (!config.lobbyId.empty()) {
+					steamSession.joinLobbyById(config.lobbyId);
+					std::cout << "[App] Joining Steam lobby " << config.lobbyId << std::endl;
+				}
+				else if (config.gameMode == "Steam Lobby") {
+					steamSession.startHostSession(config.levelName.empty() ? "Steam Lobby" : config.levelName,
+						std::max(1, config.totalPlayers));
+					std::cout << "[App] Host session started. Role: " << (steamSession.isHost() ? "Host" : "Client") << std::endl;
+				}
+				steamSession.setLocalReady(true);
+			}
 			game.startMatch(config);
 		});
 
@@ -89,6 +101,10 @@ int main(int, char**) {
 			gameTime.updateTime();
 
 			steamSession.update();
+			if (game.isInMenu()) {
+				steamSession.refreshLobbyList();
+				mainMenu.setAvailableLobbies(steamSession.availableLobbies());
+			}
 
 			if (game.isInMenu()) {
 				SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);

@@ -2,6 +2,7 @@
 
 #include "level/levelLoader.h"
 #include "level/spawnPlanner.h"
+#include "network/steamSession.h"
 #include "randomNumber.h"
 #include "res_path.h"
 
@@ -15,8 +16,9 @@ constexpr SDL_Color PLAYER_GLOW = { 0, 90, 135, 255 };
 constexpr SDL_Color PLAYER_CORE = { 20, 235, 255, 255 };
 }
 
-LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer)
+LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* steamSession)
 	: renderer_(renderer),
+	steamSession_(steamSession),
 	resPath_(getResourcePath()),
 	player_(PLAYER_GLOW, PLAYER_CORE, &cycleAnimSet_, CELL_SIZE),
 	objects_(CELL_SIZE) {
@@ -77,6 +79,10 @@ std::vector<std::string> LightcyclesGame::getAvailableLevelNames() const {
 
 bool LightcyclesGame::startMatch(const GameConfig& config) {
 	activeConfig_ = config;
+	onlineMatch_.reset();
+	if (config.onlineMode) {
+		onlineMatch_.beginSession(true, 1, std::max(0, config.totalPlayers - 1));
+	}
 
 	std::size_t targetLevel = config.levelIndex;
 	if (targetLevel >= levelCount_) {
@@ -92,16 +98,18 @@ bool LightcyclesGame::startMatch(const GameConfig& config) {
 	player_ = Cycle(config.playerGlow, config.playerCore, &cycleAnimSet_, CELL_SIZE);
 	cameraController_.target = &player_;
 
-	// Adjust AI count according to config
-	if (config.aiCount > 0 && config.aiCount < static_cast<int>(enemies_.size())) {
-		while (static_cast<int>(enemies_.size()) > config.aiCount) {
-			enemies_.pop_back();
+	// Respect the configured number of AI opponents exactly. A zero-bot match must stay bot-free.
+	const int desiredAiCount = std::max(0, config.aiCount);
+	while (static_cast<int>(enemies_.size()) > desiredAiCount) {
+		enemies_.pop_back();
+		if (!brains_.empty()) {
 			brains_.pop_back();
+		}
+		if (!enemyDecisionTimers_.empty()) {
 			enemyDecisionTimers_.pop_back();
 		}
 	}
-	else if (config.aiCount > static_cast<int>(enemies_.size())) {
-		// Fill additional AI opponents with standard personalities
+	if (static_cast<int>(enemies_.size()) < desiredAiCount) {
 		const EnemyPersonality extraPersonalities[] = {
 			EnemyPersonality::Aggressor,
 			EnemyPersonality::Ambusher,
@@ -115,9 +123,9 @@ bool LightcyclesGame::startMatch(const GameConfig& config) {
 			{ { 20, 110, 90, 255 }, { 50, 255, 220, 255 } }
 		};
 		int extraIdx = 0;
-		while (static_cast<int>(enemies_.size()) < config.aiCount) {
+		while (static_cast<int>(enemies_.size()) < desiredAiCount) {
 			const auto& c = extraColors[extraIdx % 3];
-			EnemyPersonality p = extraPersonalities[extraIdx % 5];
+			const EnemyPersonality p = extraPersonalities[extraIdx % 5];
 			enemies_.emplace_back(c[0], c[1], &cycleAnimSet_, CELL_SIZE);
 			brains_.push_back(createEnemyBrain(p));
 			enemyDecisionTimers_.push_back(0.0f);
@@ -233,6 +241,16 @@ void LightcyclesGame::handleEvent(SDL_Event& event) {
 	for (const InputCommand& command : keyboard_.update(&event)) {
 		if (command.type == InputCommandType::Move) {
 			player_.setDirectionFromAngle(command.angle);
+			if (onlineMatch_.enabled) {
+				OnlineInputPacket packet;
+				packet.playerId = onlineMatch_.localPlayerId;
+				packet.angle = command.angle;
+				packet.turnQueued = true;
+				onlineMatch_.queueInput(packet.playerId, packet.angle, packet.turnQueued);
+				if (steamSession_ != nullptr) {
+					steamSession_->queueInputPacket(packet);
+				}
+			}
 		}
 	}
 }
@@ -240,6 +258,45 @@ void LightcyclesGame::handleEvent(SDL_Event& event) {
 void LightcyclesGame::update(float elapsedSeconds) {
 	if (result_ != GameResult::Running) {
 		return;
+	}
+
+	if (onlineMatch_.enabled) {
+		onlineMatch_.advanceTick(elapsedSeconds);
+		if (steamSession_ != nullptr) {
+			const std::vector<OnlineInputPacket> remoteInputs = steamSession_->drainInputPackets();
+			for (const auto& packet : remoteInputs) {
+				if (packet.playerId != onlineMatch_.localPlayerId) {
+					onlineMatch_.queueInput(packet.playerId, packet.angle, packet.turnQueued);
+					std::cout << "[Game] applied remote input: player=" << packet.playerId << ", seq=" << packet.sequence << std::endl;
+				}
+			}
+			const std::vector<OnlineMatchSnapshot> snapshots = steamSession_->drainSnapshots();
+			for (const auto& snapshot : snapshots) {
+				onlineMatch_.applyRemoteSnapshot(snapshot);
+			}
+		}
+		if (onlineMatch_.host && steamSession_ != nullptr) {
+			OnlineMatchSnapshot snapshot;
+			snapshot.tick = onlineMatch_.tick;
+			snapshot.hostPlayerId = onlineMatch_.localPlayerId;
+			OnlinePlayerState localState;
+			localState.playerId = onlineMatch_.localPlayerId;
+			localState.name = "Local Host";
+			localState.local = true;
+			localState.alive = player_.alive();
+			localState.ready = true;
+			localState.isHost = true;
+			localState.x = player_.center().x;
+			localState.y = player_.center().y;
+			localState.direction = static_cast<float>(player_.direction());
+			localState.score = player_.score();
+			localState.lives = player_.lives();
+			snapshot.players.push_back(localState);
+			for (const auto& remote : onlineMatch_.remotePlayers) {
+				snapshot.players.push_back(remote);
+			}
+			steamSession_->queueSnapshot(snapshot);
+		}
 	}
 
 	cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
@@ -278,6 +335,15 @@ void LightcyclesGame::render() {
 
 	for (Cycle& enemy : enemies_) {
 		enemy.draw(drawContext);
+	}
+	if (onlineMatch_.enabled) {
+		for (const OnlinePlayerState& remote : onlineMatch_.remotePlayers) {
+			const int x = static_cast<int>(remote.x) - renderContext_.camera.x;
+			const int y = HUD_HEIGHT + static_cast<int>(remote.y) - renderContext_.camera.y;
+			const SDL_Rect remoteRect = { x - 5, y - 5, 10, 10 };
+			SDL_SetRenderDrawColor(renderer_, 255, 160, 85, 255);
+			SDL_RenderFillRect(renderer_, &remoteRect);
+		}
 	}
 	player_.draw(drawContext);
 

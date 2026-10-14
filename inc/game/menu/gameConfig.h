@@ -5,13 +5,15 @@
 
 struct GameConfig {
 	std::string gameMode = "Free For All";
+	bool onlineMode = false;
 	std::size_t levelIndex = 0;
 	std::string levelName = "Open Arena";
+	std::string lobbyId = "";
 	int colorIndex = 0;
 	SDL_Color playerGlow = { 0, 90, 135, 255 };
 	SDL_Color playerCore = { 20, 235, 255, 255 };
-	int totalPlayers = 4; // Total human players (currently 1 local)
-	int aiCount = 3;      // Number of AI opponents
+	int totalPlayers = 1; // Total human players including the local player
+	int aiCount = 0;      // Number of AI opponents; zero means human-only match
 };
 
 struct PlayerColorOption {

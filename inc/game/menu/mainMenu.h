@@ -10,7 +10,8 @@
 enum class MainMenuScreen {
 	Root,
 	PlaySubmenu,
-	HostConfig
+	HostConfig,
+	SearchLobby
 };
 
 class MainMenu : public Menu {
@@ -29,6 +30,7 @@ public:
 	void onBack() override;
 
 	void setAvailableLevels(const std::vector<std::string>& levelNames);
+	void setAvailableLobbies(const std::vector<std::string>& lobbyIds);
 	const GameConfig& currentConfig() const { return config_; }
 
 	void setStartGameCallback(std::function<void(const GameConfig&)> cb) { onStartGame_ = cb; }
@@ -40,6 +42,7 @@ private:
 	MainMenuScreen screen_ = MainMenuScreen::Root;
 	GameConfig config_;
 	std::vector<std::string> availableLevelNames_;
+	std::vector<std::string> availableLobbies_;
 
 	std::function<void(const GameConfig&)> onStartGame_;
 	std::function<void()> onQuit_;
@@ -55,10 +58,12 @@ private:
 	void drawRootMenu();
 	void drawPlaySubmenu();
 	void drawHostConfig();
+	void drawSearchLobby();
 
 	void handleRootSelect();
 	void handlePlaySubmenuSelect();
 	void handleHostConfigSelect();
+	void handleSearchLobbySelect();
 
 	void renderString(const std::string& text, int x, int y, SDL_Color color, int fontSize, bool center = false);
 };

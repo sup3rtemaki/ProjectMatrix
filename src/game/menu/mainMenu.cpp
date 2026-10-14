@@ -27,6 +27,15 @@ void MainMenu::setAvailableLevels(const std::vector<std::string>& levelNames) {
 	}
 }
 
+void MainMenu::setAvailableLobbies(const std::vector<std::string>& lobbyIds) {
+	availableLobbies_ = lobbyIds;
+	if (screen_ == MainMenuScreen::SearchLobby && !availableLobbies_.empty()) {
+		if (index >= static_cast<int>(availableLobbies_.size())) {
+			index = static_cast<int>(availableLobbies_.size()) - 1;
+		}
+	}
+}
+
 std::string MainMenu::resolveFontPath(const std::string& relative) const {
 	const std::string full = resPath_ + relative;
 	if (std::ifstream(full).good()) {
@@ -93,6 +102,9 @@ void MainMenu::drawText() {
 	case MainMenuScreen::HostConfig:
 		drawHostConfig();
 		break;
+	case MainMenuScreen::SearchLobby:
+		drawSearchLobby();
+		break;
 	}
 }
 
@@ -136,6 +148,28 @@ void MainMenu::drawPlaySubmenu() {
 	renderString("UP / DOWN: Navigate   |   ENTER: Select   |   ESC: Back", 480, 580, { 100, 120, 145, 255 }, 16, true);
 }
 
+void MainMenu::drawSearchLobby() {
+	renderString("- SEARCH LOBBIES -", 480, 150, { 30, 230, 182, 255 }, 24, true);
+
+	if (availableLobbies_.empty()) {
+		renderString("NO LOBBIES FOUND", 480, 250, { 180, 200, 220, 255 }, 22, true);
+		renderString("Press ENTER to refresh the lobby list", 480, 290, { 140, 170, 210, 255 }, 18, true);
+		renderString("ESC: Back", 480, 580, { 100, 120, 145, 255 }, 16, true);
+		return;
+	}
+
+	const int startY = 210;
+	const int itemSpacing = 34;
+	for (std::size_t i = 0; i < availableLobbies_.size(); ++i) {
+		const bool selected = (index == static_cast<int>(i));
+		const SDL_Color textColor = selected ? SDL_Color{ 20, 255, 170, 255 } : SDL_Color{ 180, 205, 230, 255 };
+		const std::string prefix = selected ? ">  " : "   ";
+		renderString(prefix + "Lobby " + availableLobbies_[i], 220, startY + static_cast<int>(i) * itemSpacing, textColor, 20, false);
+	}
+
+	renderString("UP / DOWN: Select Lobby   |   ENTER: Join   |   ESC: Back", 480, 580, { 100, 120, 145, 255 }, 16, true);
+}
+
 void MainMenu::drawHostConfig() {
 	renderString("- HOST ROOM CONFIGURATION -", 480, 155, { 255, 210, 50, 255 }, 22, true);
 
@@ -150,15 +184,16 @@ void MainMenu::drawHostConfig() {
 		: availableLevelNames_[config_.levelIndex % availableLevelNames_.size()];
 
 	std::string colorDisplay = PLAYER_COLOR_OPTIONS[config_.colorIndex].name;
-	std::string playersDisplay = std::to_string(config_.totalPlayers) + " (Online disabled)";
+	std::string modeDisplay = config_.onlineMode ? "Steam Lobby" : "Free For All";
+	std::string playersDisplay = config_.onlineMode ? std::to_string(config_.totalPlayers) + " Players" : std::to_string(config_.totalPlayers) + " (Online disabled)";
 	std::string aiDisplay = std::to_string(config_.aiCount) + " Opponents";
 
 	const std::vector<ConfigRow> rows = {
-		{ "GAME MODE",       "< " + config_.gameMode + " >", "Only Free For All available" },
+		{ "GAME MODE",       "< " + modeDisplay + " >",     "Toggle local vs online lobby" },
 		{ "MAP / LEVEL",      "< " + mapDisplay + " >",       "Select arena level" },
 		{ "PLAYER COLOR",   "< " + colorDisplay + " >",     "Lightcycle glow/core color" },
-		{ "HUMAN PLAYERS",  "< " + playersDisplay + " >",   "Fills with AIs currently" },
-		{ "AI OPPONENTS",    "< " + aiDisplay + " >",        "1 to 5 AI bots" },
+		{ "HUMAN PLAYERS",  "< " + playersDisplay + " >",   "Includes the local player" },
+		{ "AI OPPONENTS",    "< " + aiDisplay + " >",        "0 to 5 AI bots" },
 		{ "START GAME",     "[ PLAY NOW ]",                 "Launch match with settings" },
 		{ "BACK",           "[ CANCEL ]",                   "Return to menu" }
 	};
@@ -193,6 +228,9 @@ void MainMenu::onIndexUp() {
 	int maxIndex = 1;
 	if (screen_ == MainMenuScreen::PlaySubmenu) maxIndex = 2;
 	else if (screen_ == MainMenuScreen::HostConfig) maxIndex = 6;
+	else if (screen_ == MainMenuScreen::SearchLobby) {
+		maxIndex = availableLobbies_.empty() ? 0 : static_cast<int>(availableLobbies_.size()) - 1;
+	}
 
 	--index;
 	if (index < 0) index = maxIndex;
@@ -202,6 +240,9 @@ void MainMenu::onIndexDown() {
 	int maxIndex = 1;
 	if (screen_ == MainMenuScreen::PlaySubmenu) maxIndex = 2;
 	else if (screen_ == MainMenuScreen::HostConfig) maxIndex = 6;
+	else if (screen_ == MainMenuScreen::SearchLobby) {
+		maxIndex = availableLobbies_.empty() ? 0 : static_cast<int>(availableLobbies_.size()) - 1;
+	}
 
 	++index;
 	if (index > maxIndex) index = 0;
@@ -211,7 +252,13 @@ void MainMenu::onIndexLeft() {
 	if (screen_ != MainMenuScreen::HostConfig) return;
 
 	switch (index) {
-	case 0: // Game mode (only Free For All for now)
+	case 0: // Game mode
+		config_.onlineMode = !config_.onlineMode;
+		config_.gameMode = config_.onlineMode ? "Steam Lobby" : "Free For All";
+		if (config_.onlineMode) {
+			config_.totalPlayers = std::max(1, config_.totalPlayers);
+			config_.aiCount = std::max(0, config_.aiCount);
+		}
 		break;
 	case 1: // Map
 		if (!availableLevelNames_.empty()) {
@@ -234,13 +281,13 @@ void MainMenu::onIndexLeft() {
 		config_.playerGlow = PLAYER_COLOR_OPTIONS[config_.colorIndex].glow;
 		config_.playerCore = PLAYER_COLOR_OPTIONS[config_.colorIndex].core;
 		break;
-	case 3: // Human players (2 to 8, currently fills with AI)
-		if (config_.totalPlayers > 2) {
+	case 3: // Human players (1 to 8)
+		if (config_.totalPlayers > 1) {
 			--config_.totalPlayers;
 		}
 		break;
-	case 4: // AI count (1 to 5)
-		if (config_.aiCount > 1) {
+	case 4: // AI count (0 to 5)
+		if (config_.aiCount > 0) {
 			--config_.aiCount;
 		}
 		break;
@@ -254,6 +301,12 @@ void MainMenu::onIndexRight() {
 
 	switch (index) {
 	case 0: // Game mode
+		config_.onlineMode = !config_.onlineMode;
+		config_.gameMode = config_.onlineMode ? "Steam Lobby" : "Free For All";
+		if (config_.onlineMode) {
+			config_.totalPlayers = std::max(1, config_.totalPlayers);
+			config_.aiCount = std::max(0, config_.aiCount);
+		}
 		break;
 	case 1: // Map
 		if (!availableLevelNames_.empty()) {
@@ -271,7 +324,7 @@ void MainMenu::onIndexRight() {
 			++config_.totalPlayers;
 		}
 		break;
-	case 4: // AI count (1 to 5)
+	case 4: // AI count (0 to 5)
 		if (config_.aiCount < 5) {
 			++config_.aiCount;
 		}
@@ -292,6 +345,9 @@ void MainMenu::onSelect() {
 	case MainMenuScreen::HostConfig:
 		handleHostConfigSelect();
 		break;
+	case MainMenuScreen::SearchLobby:
+		handleSearchLobbySelect();
+		break;
 	}
 }
 
@@ -309,9 +365,19 @@ void MainMenu::handleRootSelect() {
 
 void MainMenu::handlePlaySubmenuSelect() {
 	switch (index) {
-	case 0: // SEARCH GAME (does nothing yet)
+	case 0: // SEARCH GAME
+		config_.onlineMode = true;
+		config_.gameMode = "Steam Lobby";
+		config_.lobbyId.clear();
+		config_.totalPlayers = std::max(1, config_.totalPlayers);
+		config_.aiCount = std::max(0, config_.aiCount);
+		screen_ = MainMenuScreen::SearchLobby;
+		index = 0;
 		break;
 	case 1: // HOST GAME
+		config_.onlineMode = true;
+		config_.gameMode = "Steam Lobby";
+		config_.lobbyId.clear();
 		screen_ = MainMenuScreen::HostConfig;
 		index = 5; // Default focus to "START GAME"
 		break;
@@ -325,6 +391,11 @@ void MainMenu::handlePlaySubmenuSelect() {
 void MainMenu::handleHostConfigSelect() {
 	switch (index) {
 	case 5: // START GAME
+		if (config_.onlineMode) {
+			config_.gameMode = "Steam Lobby";
+		}
+		config_.totalPlayers = std::max(1, config_.totalPlayers);
+		config_.aiCount = std::max(0, config_.aiCount);
 		if (onStartGame_) onStartGame_(config_);
 		break;
 	case 6: // BACK
@@ -336,6 +407,18 @@ void MainMenu::handleHostConfigSelect() {
 		onIndexRight();
 		break;
 	}
+}
+
+void MainMenu::handleSearchLobbySelect() {
+	if (availableLobbies_.empty()) {
+		return;
+	}
+	config_.onlineMode = true;
+	config_.gameMode = "Steam Lobby";
+	config_.lobbyId = availableLobbies_[index];
+	config_.totalPlayers = std::max(1, config_.totalPlayers);
+	config_.aiCount = std::max(0, config_.aiCount);
+	if (onStartGame_) onStartGame_(config_);
 }
 
 void MainMenu::onBack() {
@@ -350,6 +433,10 @@ void MainMenu::onBack() {
 	case MainMenuScreen::HostConfig:
 		screen_ = MainMenuScreen::PlaySubmenu;
 		index = 1;
+		break;
+	case MainMenuScreen::SearchLobby:
+		screen_ = MainMenuScreen::PlaySubmenu;
+		index = 0;
 		break;
 	}
 }

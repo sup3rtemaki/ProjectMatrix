@@ -25,6 +25,7 @@
     <ProjectGuid>{2a5c2106-cb5e-461d-a9e9-a2bdaa8e615b}</ProjectGuid>
     <RootNamespace>ProjectMatrix</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <SteamSdkDir>D:\Workspaces\Cpp\steamsdk</SteamSdkDir>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -91,16 +92,16 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);$(SteamSdkDir)\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SDL2LibraryDirectory);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_mixer.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SDL2LibraryDirectory);$(SteamSdkDir)\redistributable_bin;$(SteamSdkDir)\redistributable_bin\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_mixer.lib;SDL2_ttf.lib;steam_api.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -109,9 +110,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);$(SteamSdkDir)\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -119,24 +120,24 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SDL2LibraryDirectory);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_mixer.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SDL2LibraryDirectory);$(SteamSdkDir)\redistributable_bin;$(SteamSdkDir)\redistributable_bin\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_mixer.lib;SDL2_ttf.lib;steam_api.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);$(SteamSdkDir)\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SDL2LibraryDirectory);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_mixer.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SDL2LibraryDirectory);$(SteamSdkDir)\redistributable_bin;$(SteamSdkDir)\redistributable_bin\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_mixer.lib;SDL2_ttf.lib;steam_api64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -145,9 +146,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)inc\game;$(ProjectDir)submodules\Vertex2D\inc\engine\core;$(ProjectDir)submodules\Vertex2D\inc\engine\world;$(ProjectDir)submodules\Vertex2D\inc\engine\rendering;$(ProjectDir)submodules\Vertex2D\inc\engine\data;$(ProjectDir)submodules\Vertex2D\inc\engine\input;$(SDL2IncludeDirectory);$(SteamSdkDir)\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -155,8 +156,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SDL2LibraryDirectory);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_mixer.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SDL2LibraryDirectory);$(SteamSdkDir)\redistributable_bin;$(SteamSdkDir)\redistributable_bin\win64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_mixer.lib;SDL2_ttf.lib;steam_api64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
 
@@ -185,6 +186,7 @@
     <ClCompile Include="src\game\systems\mainMenuSystem.cpp" />
     <ClCompile Include="src\game\world\arenaObjects.cpp" />
     <ClCompile Include="src\game\network\steamSession.cpp" />
+    <ClCompile Include="src\game\network\onlineMatchState.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\game\cycle.h" />
@@ -212,6 +214,7 @@
     <ClInclude Include="inc\game\menu\mainMenu.h" />
     <ClInclude Include="inc\game\systems\mainMenuSystem.h" />
     <ClInclude Include="inc\game\network\steamSession.h" />
+    <ClInclude Include="inc\game\network\onlineMatchState.h" />
     <ClInclude Include="inc\game\world\arenaObjects.h" />
     <ClInclude Include="inc\game\world\worldObject.h" />
     <ClInclude Include="inc\game\world\obstacles\wall.h" />
@@ -231,6 +234,13 @@
       <SDL2RuntimeFiles Include="$(SDL2LibraryDirectory)\*.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(SDL2RuntimeFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopySteamRuntime" AfterTargets="Build">
+    <ItemGroup>
+      <SteamRuntimeFiles Include="$(SteamSdkDir)\redistributable_bin\steam_api.dll" Condition="'$(Platform)'=='Win32'" />
+      <SteamRuntimeFiles Include="$(SteamSdkDir)\redistributable_bin\win64\steam_api64.dll" Condition="'$(Platform)'=='x64'" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SteamRuntimeFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
   <Target Name="CopyResources" AfterTargets="Build">
     <ItemGroup>
