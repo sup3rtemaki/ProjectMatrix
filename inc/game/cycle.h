@@ -1,10 +1,11 @@
 #pragma once
 
+#include "collision/geometry2D.h"
 #include "effects/cycleEffects.h"
 #include "livingEntity.h"
+#include "trail/continuousTrail.h"
 
 #include <cstddef>
-#include <deque>
 
 enum class Direction {
 	North,
@@ -27,8 +28,6 @@ public:
 	void setDirection(Direction direction);
 	void setDirectionFromAngle(float angle);
 	void advance(float distance); // moves along the current direction, in pixels
-	void addTrailCell(SDL_Point cell);
-	SDL_Point popOldestTrailPoint();
 	void clearTrail();
 	void crash();
 
@@ -38,10 +37,12 @@ public:
 	void die() override { crash(); }
 
 	SDL_Point position() const; // grid cell under the cycle's head
+	Vec2 center() const { return { x, y }; }
 	Direction direction() const;
 	SDL_Point nextPosition() const;
 	SDL_Point nextPosition(Direction direction) const;
-	const std::deque<SDL_Point>& trail() const;
+	const ContinuousTrail& trail() const { return trail_; }
+	ContinuousTrail& trail() { return trail_; }
 	SDL_Color glowColor() const;
 	SDL_Color coreColor() const;
 	bool alive() const;
@@ -60,7 +61,7 @@ public:
 	void updateRespawn(float dt) { if (respawnTimer_ > 0.0f) respawnTimer_ -= dt; }
 
 	CycleEffects& effects() { return effects_; }
-	std::size_t maxTrailLength() const { return MAX_TRAIL_LENGTH + effects_.trailBonus(); }
+	float maxPixelTrailLength() const { return static_cast<float>((MAX_TRAIL_LENGTH + effects_.trailBonus()) * cellSize_); }
 
 private:
 	static SDL_Point directionOffset(Direction direction);
@@ -69,7 +70,7 @@ private:
 	static const char* animationName(Direction direction);
 
 	Direction direction_ = Direction::East;
-	std::deque<SDL_Point> trail_;
+	ContinuousTrail trail_;
 	CycleEffects effects_;
 	SDL_Color glowColor_{};
 	SDL_Color coreColor_{};

@@ -13,5 +13,5 @@ protected:
 		return preference(type, 0.8f, 0.8f);
 	}
 
-	int pickupSightRange() const override { return 24; }
+	float pickupSightRange() const override { return 200.0f; }
 };

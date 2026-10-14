@@ -2,6 +2,7 @@
 #include "SDL_ttf.h"
 #include "lightcyclesGame.h"
 #include "menu/mainMenu.h"
+#include "network/steamSession.h"
 #include "res_path.h"
 #include "systems/mainMenuSystem.h"
 #include "timeController.h"
@@ -46,6 +47,9 @@ int main(int, char**) {
 		LightcyclesGame::WINDOW_HEIGHT);
 
 	{
+		SteamSessionService steamSession;
+		steamSession.initialize();
+
 		LightcyclesGame game(renderer);
 		MainMenu mainMenu;
 		mainMenu.setRenderer(renderer);
@@ -83,6 +87,8 @@ int main(int, char**) {
 			}
 
 			gameTime.updateTime();
+
+			steamSession.update();
 
 			if (game.isInMenu()) {
 				SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);

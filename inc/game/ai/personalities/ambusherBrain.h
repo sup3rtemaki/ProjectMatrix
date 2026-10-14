@@ -7,15 +7,16 @@
 class AmbusherBrain : public EnemyBrain {
 protected:
 	Direction act(const Cycle& self, const Cycle& player, const ArenaView& arena) override {
-		const SDL_Point here = player.position();
-		if (distance(self.position(), here) <= CLOSE_RANGE) {
+		const Vec2 here = player.center();
+		if (geom::distance(self.center(), here) <= CLOSE_RANGE) {
 			return towards(self, arena, here);
 		}
 
-		const SDL_Point ahead = player.nextPosition();
-		const SDL_Point target = {
-			std::clamp(here.x + (ahead.x - here.x) * LEAD_CELLS, 0, arena.width - 1),
-			std::clamp(here.y + (ahead.y - here.y) * LEAD_CELLS, 0, arena.height - 1) };
+		const Vec2 ahead = directionVector(player.direction()) * LEAD_DISTANCE;
+		const Vec2 target = {
+			std::clamp(here.x + ahead.x, 16.0f, arena.worldWidth - 16.0f),
+			std::clamp(here.y + ahead.y, 16.0f, arena.worldHeight - 16.0f)
+		};
 		return towards(self, arena, target);
 	}
 
@@ -24,9 +25,9 @@ protected:
 		return preference(type, 0.6f, 1.0f);
 	}
 
-	int pickupSightRange() const override { return 18; }
+	float pickupSightRange() const override { return 160.0f; }
 
 private:
-	static constexpr int LEAD_CELLS = 12;
-	static constexpr int CLOSE_RANGE = 8;
+	static constexpr float LEAD_DISTANCE = 96.0f;
+	static constexpr float CLOSE_RANGE = 60.0f;
 };

@@ -121,6 +121,32 @@ const std::vector<PickupSighting>& ArenaObjects::pickups() const {
 	return pickups_;
 }
 
+std::vector<RectF> ArenaObjects::getWallBoxes() const {
+	std::vector<RectF> boxes;
+	for (const Entry& entry : entries_) {
+		if (entry.type == ObjectType::Wall && entry.object != nullptr) {
+			const SDL_Rect& cells = entry.object->cells();
+			boxes.push_back({
+				static_cast<float>(cells.x * cellSize_),
+				static_cast<float>(cells.y * cellSize_),
+				static_cast<float>(cells.w * cellSize_),
+				static_cast<float>(cells.h * cellSize_)
+			});
+		}
+	}
+	return boxes;
+}
+
+std::vector<Vec2> ArenaObjects::getMinePositions() const {
+	std::vector<Vec2> mines;
+	for (const Entry& entry : entries_) {
+		if (entry.type == ObjectType::MineTrap && entry.object != nullptr) {
+			mines.push_back({ entry.object->x, entry.object->y });
+		}
+	}
+	return mines;
+}
+
 std::size_t ArenaObjects::cellIndex(int x, int y) const {
 	return static_cast<std::size_t>(y * gridWidth_ + x);
 }

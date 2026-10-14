@@ -19,7 +19,7 @@ void Cycle::reset(SDL_Point start, Direction direction) {
 	x = static_cast<float>(start.x * cellSize_ + cellSize_ / 2);
 	y = static_cast<float>(start.y * cellSize_ + cellSize_ / 2);
 	direction_ = direction;
-	trail_.clear();
+	trail_.reset({ x, y });
 	effects_.clear();
 	alive_ = true;
 	lives_ = INITIAL_LIVES;
@@ -31,7 +31,7 @@ void Cycle::respawn(SDL_Point start, Direction direction) {
 	x = static_cast<float>(start.x * cellSize_ + cellSize_ / 2);
 	y = static_cast<float>(start.y * cellSize_ + cellSize_ / 2);
 	direction_ = direction;
-	trail_.clear();
+	trail_.reset({ x, y });
 	effects_.clear();
 	alive_ = true;
 	respawnTimer_ = 0.0f;
@@ -44,6 +44,7 @@ void Cycle::clearTrail() {
 
 void Cycle::setDirection(Direction direction) {
 	if (direction != turnLeft(turnLeft(direction_)) && direction != direction_) {
+		trail_.onTurn({ x, y });
 		direction_ = direction;
 		changeAnimation(0, true);
 	}
@@ -96,16 +97,8 @@ void Cycle::advance(float distance) {
 	const SDL_Point offset = directionOffset(direction_);
 	x += offset.x * distance;
 	y += offset.y * distance;
-}
-
-void Cycle::addTrailCell(SDL_Point cell) {
-	trail_.push_back(cell);
-}
-
-SDL_Point Cycle::popOldestTrailPoint() {
-	const SDL_Point oldest = trail_.front();
-	trail_.pop_front();
-	return oldest;
+	trail_.updateHead({ x, y });
+	trail_.trim(maxPixelTrailLength());
 }
 
 void Cycle::crash() {
@@ -128,10 +121,6 @@ SDL_Point Cycle::nextPosition(Direction direction) const {
 	const SDL_Point offset = directionOffset(direction);
 	const SDL_Point cell = position();
 	return { cell.x + offset.x, cell.y + offset.y };
-}
-
-const std::deque<SDL_Point>& Cycle::trail() const {
-	return trail_;
 }
 
 SDL_Color Cycle::glowColor() const {

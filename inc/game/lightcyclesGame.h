@@ -30,8 +30,12 @@ public:
 	static constexpr int WINDOW_HEIGHT = 640;
 	static constexpr int HUD_HEIGHT = 36;
 	static constexpr int VIEWPORT_HEIGHT = WINDOW_HEIGHT - HUD_HEIGHT;
+	static constexpr float CAMERA_ZOOM = 0.64f;
+	static constexpr int CAMERA_WIDTH = static_cast<int>(WINDOW_WIDTH * CAMERA_ZOOM);
+	static constexpr int CAMERA_HEIGHT = static_cast<int>(VIEWPORT_HEIGHT * CAMERA_ZOOM);
 
 	explicit LightcyclesGame(SDL_Renderer* renderer);
+	~LightcyclesGame();
 
 	bool isRunning() const;
 	void handleEvent(SDL_Event& event);
@@ -57,24 +61,21 @@ private:
 	bool isPlayable(const LevelDefinition& level) const;
 	bool loadLevel(std::size_t index);
 
-	bool isInsideGrid(int x, int y) const;
-	bool isOccupied(int x, int y) const;
-	std::size_t gridIndex(int x, int y) const;
+	ArenaView buildArenaView() const;
+	bool checkCycleCollision(const Cycle& cycle, Vec2 before, Vec2 after, Cycle*& outKiller);
 	void updateCycles(float elapsedSeconds);
-	void moveCycle(Cycle& cycle, EnemyBrain* brain, float elapsedSeconds);
-	void lightCell(Cycle& cycle, SDL_Point cell);
+	void moveCycle(Cycle& cycle, EnemyBrain* brain, std::size_t enemyIndex, float elapsedSeconds);
 	void handleCycleCrash(Cycle& cycle);
-	void clearCycleTrail(Cycle& cycle);
 	void updateCycleRespawn(Cycle& cycle, float elapsedSeconds);
 	bool findSafeRespawn(SDL_Point& outCell, Direction& outDir);
 	void respawnCycle(Cycle& cycle);
 	void crashCollidingHeads();
 	void updateResult();
 	void reset();
-	void drawTrail(const Cycle& cycle) const;
 	void setDrawColor(SDL_Color color) const;
 
 	SDL_Renderer* renderer_;
+	SDL_Texture* worldTexture_ = nullptr; // world drawn at camera size, then scaled to the game area
 	std::string resPath_;
 	RenderContext renderContext_;
 	KeyboardInput keyboard_;
@@ -84,8 +85,7 @@ private:
 	Cycle player_;
 	std::vector<Cycle> enemies_;
 	std::vector<std::unique_ptr<EnemyBrain>> brains_;
-	std::vector<std::uint8_t> occupied_;
-	std::vector<Cycle*> trailOwner_;
+	std::vector<float> enemyDecisionTimers_;
 	ArenaObjects objects_;
 	LevelDefinition level_;
 	std::size_t levelIndex_ = 0;

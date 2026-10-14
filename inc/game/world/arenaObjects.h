@@ -26,6 +26,9 @@ public:
 	// Power-ups currently in the arena, for the enemy AI.
 	const std::vector<PickupSighting>& pickups() const;
 
+	std::vector<RectF> getWallBoxes() const;
+	std::vector<Vec2> getMinePositions() const;
+
 private:
 	struct Entry {
 		ObjectType type;

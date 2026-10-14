@@ -5,7 +5,7 @@
 class AggressorBrain : public EnemyBrain {
 protected:
 	Direction act(const Cycle& self, const Cycle& player, const ArenaView& arena) override {
-		return towards(self, arena, player.position());
+		return towards(self, arena, player.center());
 	}
 
 	// Likes speed to run the player down.
@@ -13,5 +13,5 @@ protected:
 		return preference(type, 1.0f, 0.4f);
 	}
 
-	int pickupSightRange() const override { return 20; }
+	float pickupSightRange() const override { return 180.0f; }
 };
