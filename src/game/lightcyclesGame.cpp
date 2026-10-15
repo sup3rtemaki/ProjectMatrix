@@ -650,6 +650,46 @@ void LightcyclesGame::updateResult() {
 		return;
 	}
 
+	if (onlineMatch_.enabled) {
+		const bool playerEliminated = player_.isEliminated();
+		if (playerEliminated) {
+			result_ = GameResult::PlayerLost;
+			return;
+		}
+
+		bool hasOtherOpponents = false;
+		for (const auto& remote : onlineMatch_.remotePlayers) {
+			if (remote.alive) {
+				hasOtherOpponents = true;
+				break;
+			}
+		}
+		if (!hasOtherOpponents) {
+			const bool hasAiOpponents = std::any_of(enemies_.begin(), enemies_.end(),
+				[](const Cycle& enemy) { return enemy.alive() && !enemy.isRespawning(); });
+			if (!hasAiOpponents) {
+				return; // empty lobby / solo waiting state: do not auto-win while nobody has joined yet
+			}
+		}
+
+		bool otherPlayersAlive = false;
+		for (const auto& remote : onlineMatch_.remotePlayers) {
+			if (remote.alive) {
+				otherPlayersAlive = true;
+				break;
+			}
+		}
+		if (!otherPlayersAlive) {
+			const bool aiAlive = std::any_of(enemies_.begin(), enemies_.end(),
+				[](const Cycle& enemy) { return enemy.alive() && !enemy.isRespawning(); });
+			if (!aiAlive) {
+				result_ = GameResult::PlayerWon;
+				return;
+			}
+		}
+		return;
+	}
+
 	const bool playerEliminated = player_.isEliminated();
 	const bool allEnemiesEliminated = std::all_of(enemies_.begin(), enemies_.end(),
 		[](const Cycle& enemy) { return enemy.isEliminated(); });

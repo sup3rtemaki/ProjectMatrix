@@ -242,6 +242,9 @@
     </ItemGroup>
     <Copy SourceFiles="@(SteamRuntimeFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
+  <Target Name="CopySteamAppId" AfterTargets="Build">
+    <Copy SourceFiles="$(ProjectDir)steam_appid.txt" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
   <Target Name="CopyResources" AfterTargets="Build">
     <ItemGroup>
       <ResourceFiles Include="$(ProjectDir)res\**\*" Exclude="$(ProjectDir)res\**\*.blend;$(ProjectDir)res\**\*.blend1;$(ProjectDir)res\**\*.zip;$(ProjectDir)res\tron-1982-lightcycle\**" />
