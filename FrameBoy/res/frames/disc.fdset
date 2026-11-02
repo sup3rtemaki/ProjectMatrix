@@ -1,0 +1,130 @@
+disc.png
+animations: 1
+idle
+frames: 21
+frame
+clip: 0 0 32 32
+offset: 15 15
+duration: 0.1
+index: 0
+collisionBox1: 0 0 32 32
+frame
+clip: 32 0 32 32
+offset: 15 15
+duration: 0.1
+index: 1
+collisionBox1: 0 0 32 32
+frame
+clip: 64 0 32 32
+offset: 15 15
+duration: 0.1
+index: 2
+collisionBox1: 0 0 32 32
+frame
+clip: 96 0 32 32
+offset: 15 15
+duration: 0.1
+index: 3
+collisionBox1: 0 0 32 32
+frame
+clip: 128 0 32 32
+offset: 15 15
+duration: 0.1
+index: 4
+collisionBox1: 0 0 32 32
+frame
+clip: 0 32 32 32
+offset: 15 15
+duration: 0.1
+index: 5
+collisionBox1: 0 0 32 32
+frame
+clip: 32 32 32 32
+offset: 15 15
+duration: 0.1
+index: 6
+collisionBox1: 0 0 32 32
+frame
+clip: 64 32 32 32
+offset: 15 15
+duration: 0.1
+index: 7
+collisionBox1: 0 0 32 32
+frame
+clip: 96 32 32 32
+offset: 15 15
+duration: 0.1
+index: 8
+collisionBox1: 0 0 32 32
+frame
+clip: 128 32 32 32
+offset: 15 15
+duration: 0.1
+index: 9
+collisionBox1: 0 0 32 32
+frame
+clip: 0 64 32 32
+offset: 15 15
+duration: 0.1
+index: 10
+collisionBox1: 0 0 32 32
+frame
+clip: 32 64 32 32
+offset: 15 15
+duration: 0.1
+index: 11
+collisionBox1: 0 0 32 32
+frame
+clip: 64 64 32 32
+offset: 15 15
+duration: 0.1
+index: 12
+collisionBox1: 0 0 32 32
+frame
+clip: 96 64 32 32
+offset: 15 15
+duration: 0.1
+index: 13
+collisionBox1: 0 0 32 32
+frame
+clip: 128 64 32 32
+offset: 15 15
+duration: 0.1
+index: 14
+collisionBox1: 0 0 32 32
+frame
+clip: 0 96 32 32
+offset: 15 15
+duration: 0.1
+index: 15
+collisionBox1: 0 0 32 32
+frame
+clip: 32 96 32 32
+offset: 15 15
+duration: 0.1
+index: 16
+collisionBox1: 0 0 32 32
+frame
+clip: 64 96 32 32
+offset: 15 15
+duration: 0.1
+index: 17
+collisionBox1: 0 0 32 32
+frame
+clip: 96 96 32 32
+offset: 15 15
+duration: 0.1
+index: 18
+collisionBox1: 0 0 32 32
+frame
+clip: 128 96 32 32
+offset: 15 15
+duration: 0.1
+index: 19
+collisionBox1: 0 0 32 32
+frame
+clip: 0 128 32 32
+offset: 15 15
+duration: 0.1
+index: 20
+collisionBox1: 0 0 32 32

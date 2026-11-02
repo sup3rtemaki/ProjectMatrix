@@ -48,6 +48,7 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* st
 
 	hudUi_.setRenderer(renderer_);
 	hudUi_.setResourcePath(resPath_);
+	objects_.setRenderer(renderer_);
 
 	levelCount_ = countLevels();
 	inMenu_ = true;
@@ -63,7 +64,7 @@ LightcyclesGame::~LightcyclesGame() {
 std::vector<std::string> LightcyclesGame::getAvailableLevelNames() const {
 	std::vector<std::string> names;
 	for (std::size_t i = 0; i < levelCount_; ++i) {
-		std::optional<LevelDefinition> def = LevelLoader::load(levelPath(i));
+		std::optional<LevelDefinition> def = LevelLoader::load(levelPath(i), CELL_SIZE);
 		if (def && isPlayable(*def)) {
 			names.push_back(def->name);
 		}
@@ -143,12 +144,12 @@ void LightcyclesGame::returnToMenu() {
 }
 
 std::string LightcyclesGame::levelPath(std::size_t index) const {
-	return resPath_ + LEVELS_FOLDER + "level" + std::to_string(index + 1) + ".json";
+	return resPath_ + LEVELS_FOLDER + LEVEL_FILES[index];
 }
 
 std::size_t LightcyclesGame::countLevels() const {
 	std::size_t count = 0;
-	while (std::ifstream(levelPath(count)).good()) {
+	while (count < LEVEL_FILES.size() && std::ifstream(levelPath(count)).good()) {
 		++count;
 	}
 	return count;
@@ -180,13 +181,14 @@ bool LightcyclesGame::isPlayable(const LevelDefinition& level) const {
 }
 
 bool LightcyclesGame::loadLevel(std::size_t index) {
-	std::optional<LevelDefinition> loaded = LevelLoader::load(levelPath(index));
+	std::optional<LevelDefinition> loaded = LevelLoader::load(levelPath(index), CELL_SIZE);
 	if (!loaded || !isPlayable(*loaded)) {
 		return false;
 	}
 
 	level_ = std::move(*loaded);
 	levelIndex_ = index;
+	tileMap_.load(level_, renderer_, resPath_ + TEXTURES_FOLDER);
 	enemies_.clear();
 	brains_.clear();
 	enemyDecisionTimers_.clear();
@@ -326,6 +328,7 @@ void LightcyclesGame::render() {
 	SDL_SetRenderDrawColor(renderer_, 22, 32, 45, SDL_ALPHA_OPAQUE);
 	SDL_RenderDrawRect(renderer_, &arena);
 
+	tileMap_.draw(drawContext);
 	objects_.draw(drawContext);
 
 	player_.trail().draw(renderer_, renderContext_.camera, offsetY, player_.glowColor(), player_.coreColor());
@@ -487,7 +490,17 @@ void LightcyclesGame::updateCycles(float elapsedSeconds) {
 		}
 	}
 	std::vector<std::uint8_t> dummyOccupied(level_.width * level_.height, 0);
-	objects_.update(elapsedSeconds, dummyOccupied);
+	std::vector<Cycle*> cycles = { &player_ };
+	for (Cycle& enemy : enemies_) {
+		cycles.push_back(&enemy);
+	}
+	objects_.update(elapsedSeconds, dummyOccupied, cycles);
+	// Objects such as towers can crash a cycle outside its own movement.
+	for (Cycle* cycle : cycles) {
+		if (!cycle->alive()) {
+			handleCycleCrash(*cycle);
+		}
+	}
 
 	// Sub-steps of at most 4 pixels so no segment passes through another
 	const float maxDistance = CYCLE_SPEED * fastest * elapsedSeconds;

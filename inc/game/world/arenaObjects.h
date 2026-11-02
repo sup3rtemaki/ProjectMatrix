@@ -16,10 +16,11 @@ public:
 	// Rebuilds the arena content from the level; scattered objects keep away from keepClear cells.
 	void reset(const LevelDefinition& level, const std::vector<SDL_Point>& keepClear,
 		const std::vector<std::uint8_t>& occupied);
-	void update(float elapsedSeconds, const std::vector<std::uint8_t>& occupied);
+	void update(float elapsedSeconds, const std::vector<std::uint8_t>& occupied, const std::vector<Cycle*>& cycles);
 	// Triggers the object under the cell, if any.
 	void touch(Cycle& cycle, SDL_Point cell);
 	void draw(const RenderContext& context);
+	void setRenderer(SDL_Renderer* renderer) { renderer_ = renderer; }
 
 	// 1 on cells holding something dangerous, for the enemy AI.
 	const std::vector<std::uint8_t>& dangerGrid() const;
@@ -41,7 +42,7 @@ private:
 
 	std::size_t cellIndex(int x, int y) const;
 	bool tryPlace(ObjectType type, const std::vector<std::uint8_t>& occupied,
-		const std::vector<SDL_Point>& keepClear, int minLength = 3, int maxLength = 10);
+		const std::vector<SDL_Point>& keepClear);
 	bool isAreaFree(const SDL_Rect& area, const std::vector<std::uint8_t>& occupied,
 		const std::vector<SDL_Point>& keepClear) const;
 	bool isInsideGrid(const SDL_Rect& area) const;
@@ -52,6 +53,7 @@ private:
 	int gridHeight_ = 0;
 	int cellSize_;
 	float respawnSeconds_ = 0;
+	SDL_Renderer* renderer_ = nullptr;
 	std::vector<Entry> entries_;
 	std::vector<WorldObject*> cells_;
 	std::vector<std::uint8_t> danger_;

@@ -178,6 +178,7 @@
     <ClCompile Include="src\game\level\levelLoader.cpp" />
     <ClCompile Include="src\game\level\spawnPlanner.cpp" />
     <ClCompile Include="src\game\rendering\shapes.cpp" />
+    <ClCompile Include="src\game\rendering\tileMapRenderer.cpp" />
     <ClCompile Include="src\game\collision\geometry2D.cpp" />
     <ClCompile Include="src\game\trail\continuousTrail.cpp" />
     <ClCompile Include="src\game\ui\ui.cpp" />
@@ -187,6 +188,7 @@
     <ClCompile Include="src\game\world\arenaObjects.cpp" />
     <ClCompile Include="src\game\network\steamSession.cpp" />
     <ClCompile Include="src\game\network\onlineMatchState.cpp" />
+    <ClCompile Include="src\game\world\obstacles\tower.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\game\cycle.h" />
@@ -207,6 +209,7 @@
     <ClInclude Include="inc\game\collision\geometry2D.h" />
     <ClInclude Include="inc\game\trail\continuousTrail.h" />
     <ClInclude Include="inc\game\rendering\shapes.h" />
+    <ClInclude Include="inc\game\rendering\tileMapRenderer.h" />
     <ClInclude Include="inc\game\ui\ui.h" />
     <ClInclude Include="inc\game\ui\hudUi.h" />
     <ClInclude Include="inc\game\menu\gameConfig.h" />
@@ -218,6 +221,7 @@
     <ClInclude Include="inc\game\world\arenaObjects.h" />
     <ClInclude Include="inc\game\world\worldObject.h" />
     <ClInclude Include="inc\game\world\obstacles\wall.h" />
+    <ClInclude Include="inc\game\world\obstacles\tower.h" />
     <ClInclude Include="inc\game\world\pickups\boostPickup.h" />
     <ClInclude Include="inc\game\world\pickups\longTrailPickup.h" />
     <ClInclude Include="inc\game\world\traps\mineTrap.h" />

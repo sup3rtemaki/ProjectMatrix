@@ -1,0 +1,69 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "big_map.tmx",
+    "expandedProjectPaths": [
+        "."
+    ],
+    "fileStates": {
+        "big_map.tmx": {
+            "scale": 1,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 600,
+                "y": 426
+            }
+        },
+        "cubes_32x32.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "cylinders_128x128.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "neon_tileset.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "tower_1.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "walls.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        }
+    },
+    "last.exportedFilePath": "D:/Workspaces/Cpp/ProjectMatrix/res/levels",
+    "last.imagePath": "D:/Workspaces/Cpp/ProjectMatrix/res/textures",
+    "map.height": 90,
+    "map.lastUsedExportFilter": "Ficheiros de mapa JSON (*.tmj *.json)",
+    "map.lastUsedFormat": "tmx",
+    "map.width": 90,
+    "openFiles": [
+        "big_map.tmx",
+        "neon_tileset.tsx",
+        "tower_1.tsx",
+        "walls.tsx",
+        "cubes_32x32.tsx",
+        "cylinders_128x128.tsx"
+    ],
+    "project": "ProjectMatrix.tiled-project",
+    "property.type": "int",
+    "recentFiles": [
+        "cylinders_128x128.tsx",
+        "cubes_32x32.tsx",
+        "walls.tsx",
+        "tower_1.tsx",
+        "neon_tileset.tsx",
+        "big_map.tmx"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.tileSize": {
+        "height": 32,
+        "width": 32
+    }
+}

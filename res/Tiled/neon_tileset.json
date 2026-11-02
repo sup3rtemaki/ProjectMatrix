@@ -1,0 +1,14 @@
+{ "columns":4,
+ "image":"..\/textures\/neon_tileset.png",
+ "imageheight":128,
+ "imagewidth":128,
+ "margin":0,
+ "name":"neon_tileset",
+ "spacing":0,
+ "tilecount":16,
+ "tiledversion":"1.10.2",
+ "tileheight":32,
+ "tilewidth":32,
+ "type":"tileset",
+ "version":"1.10"
+}

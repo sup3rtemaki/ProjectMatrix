@@ -27,12 +27,17 @@ struct ObjectPlacement {
 	SDL_Rect cells;
 };
 
-// Objects dropped at random free places; lengths only apply to walls.
+// Objects dropped at random free places.
 struct ObjectScatter {
 	ObjectType type;
 	int count;
-	int minLength = 3;
-	int maxLength = 10;
+};
+
+// One drawn tile of a Tiled layer.
+struct TileSprite {
+	int image;            // index into LevelDefinition::tileImages
+	SDL_Rect source;      // in the tileset image, pixels
+	SDL_Rect destination; // in the world, pixels
 };
 
 struct LevelDefinition {
@@ -44,4 +49,6 @@ struct LevelDefinition {
 	std::vector<EnemyDefinition> enemies;
 	std::vector<ObjectPlacement> placements;
 	std::vector<ObjectScatter> scatter;
+	std::vector<std::string> tileImages; // texture file names, relative to the textures folder
+	std::vector<TileSprite> tiles;       // in layer order, back to front
 };

@@ -2,6 +2,8 @@
 
 #include "cycle.h"
 
+#include <vector>
+
 // Anything placed in the arena that a cycle can run into. Drawn with primitives until sprites exist.
 class WorldObject : public Entity {
 public:
@@ -23,6 +25,12 @@ public:
 	virtual bool isConsumedOnTouch() const { return true; }
 	// Power-ups the enemy AI may go after.
 	virtual bool isPickup() const { return false; }
+
+	// Called every frame; objects that react to cycles override it.
+	virtual void tick(float elapsedSeconds, const std::vector<Cycle*>& /*cycles*/) {
+		deltaTime = elapsedSeconds;
+		update();
+	}
 
 	void changeAnimation(int, bool, string = "") override {}
 

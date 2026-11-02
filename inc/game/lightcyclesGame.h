@@ -10,6 +10,7 @@
 #include "menu/gameConfig.h"
 #include "network/onlineMatchState.h"
 #include "renderContext.h"
+#include "rendering/tileMapRenderer.h"
 #include "ui/hudUi.h"
 #include "world/arenaObjects.h"
 
@@ -57,7 +58,9 @@ private:
 	static constexpr int MIN_GRID_HEIGHT = (VIEWPORT_HEIGHT + CELL_SIZE - 1) / CELL_SIZE;
 	static constexpr float CYCLE_SPEED = CELL_SIZE / 0.1f; // pixels per second
 	inline static const std::string CYCLE_ANIMATION_SET = "cycle.fdset";
-	inline static const std::string LEVELS_FOLDER = "levels/"; // level1.json, level2.json, ...
+	inline static const std::string LEVELS_FOLDER = "levels/";
+	inline static const std::string TEXTURES_FOLDER = "textures/";
+	inline static const std::vector<std::string> LEVEL_FILES = { "big_map.json" }; // Tiled maps in LEVELS_FOLDER
 
 	std::string levelPath(std::size_t index) const;
 	std::size_t countLevels() const;
@@ -92,6 +95,7 @@ private:
 	std::vector<float> enemyDecisionTimers_;
 	OnlineMatchState onlineMatch_;
 	ArenaObjects objects_;
+	TileMapRenderer tileMap_;
 	LevelDefinition level_;
 	std::size_t levelIndex_ = 0;
 	std::size_t levelCount_ = 0;

@@ -10,7 +10,11 @@ public:
 	bool isDangerous() const override { return true; }
 	bool isConsumedOnTouch() const override { return false; }
 
+	// The Walls tile layer draws the art; this entity is only the collision.
 	void draw(const RenderContext& context) override {
+		if (!context.debugging) {
+			return;
+		}
 		const SDL_Rect bounds = { cells_.x * cellSize_ - context.camera.x,
 			cells_.y * cellSize_ - context.camera.y, cells_.w * cellSize_, cells_.h * cellSize_ };
 		SDL_SetRenderDrawColor(context.renderer, 55, 65, 85, SDL_ALPHA_OPAQUE);

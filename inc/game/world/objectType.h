@@ -5,5 +5,6 @@ enum class ObjectType {
 	BoostPickup,
 	LongTrailPickup,
 	MineTrap,
-	SlowTrap
+	SlowTrap,
+	Tower
 };

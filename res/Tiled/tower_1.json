@@ -1,0 +1,24 @@
+{ "columns":7,
+ "image":"..\/animations\/tower_1.png",
+ "imageheight":128,
+ "imagewidth":896,
+ "margin":0,
+ "name":"tower_1",
+ "spacing":0,
+ "tilecount":7,
+ "tiledversion":"1.10.2",
+ "tileheight":128,
+ "tiles":[
+        {
+         "id":0,
+         "properties":[
+                {
+                 "name":"classId",
+                 "type":"int",
+                 "value":1001
+                }]
+        }],
+ "tilewidth":128,
+ "type":"tileset",
+ "version":"1.10"
+}

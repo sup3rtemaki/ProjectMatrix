@@ -2,6 +2,7 @@
 
 #include "randomNumber.h"
 #include "world/obstacles/wall.h"
+#include "world/obstacles/tower.h"
 #include "world/pickups/boostPickup.h"
 #include "world/pickups/longTrailPickup.h"
 #include "world/traps/mineTrap.h"
@@ -16,23 +17,16 @@ constexpr float RETRY_SECONDS = 1.0f;
 constexpr int EDGE_MARGIN = 3;
 constexpr int KEEP_CLEAR_RADIUS = 12;
 constexpr int PLACEMENT_ATTEMPTS = 60;
+constexpr SDL_Point SCATTER_SIZE = { 2, 2 };
 
-SDL_Point randomSize(ObjectType type, int minLength, int maxLength) {
-	if (type != ObjectType::Wall) {
-		return { 2, 2 };
-	}
-	const int length = minLength + getRandomNumber(maxLength - minLength + 1);
-	const int thickness = 1 + getRandomNumber(2);
-	return getRandomNumber(2) == 0 ? SDL_Point{ length, thickness } : SDL_Point{ thickness, length };
-}
-
-std::unique_ptr<WorldObject> create(ObjectType type, const SDL_Rect& area, int cellSize) {
+std::unique_ptr<WorldObject> create(ObjectType type, const SDL_Rect& area, int cellSize, SDL_Renderer* renderer) {
 	switch (type) {
 	case ObjectType::Wall: return std::make_unique<Wall>(area, cellSize);
 	case ObjectType::BoostPickup: return std::make_unique<BoostPickup>(area, cellSize);
 	case ObjectType::LongTrailPickup: return std::make_unique<LongTrailPickup>(area, cellSize);
 	case ObjectType::MineTrap: return std::make_unique<MineTrap>(area, cellSize);
 	case ObjectType::SlowTrap: return std::make_unique<SlowTrap>(area, cellSize);
+	case ObjectType::Tower: return std::make_unique<Tower>(area, cellSize, renderer);
 	}
 	return nullptr;
 }
@@ -64,12 +58,13 @@ void ArenaObjects::reset(const LevelDefinition& level, const std::vector<SDL_Poi
 
 	for (const ObjectScatter& scatter : level.scatter) {
 		for (int count = 0; count < scatter.count; ++count) {
-			tryPlace(scatter.type, occupied, keepClear, scatter.minLength, scatter.maxLength);
+			tryPlace(scatter.type, occupied, keepClear);
 		}
 	}
 }
 
-void ArenaObjects::update(float elapsedSeconds, const std::vector<std::uint8_t>& occupied) {
+void ArenaObjects::update(float elapsedSeconds, const std::vector<std::uint8_t>& occupied,
+	const std::vector<Cycle*>& cycles) {
 	for (std::size_t index = 0; index < respawns_.size();) {
 		respawns_[index].remaining -= elapsedSeconds;
 		if (respawns_[index].remaining > 0) {
@@ -81,6 +76,12 @@ void ArenaObjects::update(float elapsedSeconds, const std::vector<std::uint8_t>&
 		else {
 			respawns_[index].remaining = RETRY_SECONDS;
 			++index;
+		}
+	}
+
+	for (const Entry& entry : entries_) {
+		if (entry.object != nullptr) {
+			entry.object->tick(elapsedSeconds, cycles);
 		}
 	}
 }
@@ -152,9 +153,9 @@ std::size_t ArenaObjects::cellIndex(int x, int y) const {
 }
 
 bool ArenaObjects::tryPlace(ObjectType type, const std::vector<std::uint8_t>& occupied,
-	const std::vector<SDL_Point>& keepClear, int minLength, int maxLength) {
+	const std::vector<SDL_Point>& keepClear) {
 	for (int attempt = 0; attempt < PLACEMENT_ATTEMPTS; ++attempt) {
-		const SDL_Point size = randomSize(type, minLength, maxLength);
+		const SDL_Point size = SCATTER_SIZE;
 		const int spanX = gridWidth_ - size.x - 2 * EDGE_MARGIN;
 		const int spanY = gridHeight_ - size.y - 2 * EDGE_MARGIN;
 		if (spanX <= 0 || spanY <= 0) {
@@ -196,13 +197,15 @@ bool ArenaObjects::isAreaFree(const SDL_Rect& area, const std::vector<std::uint8
 }
 
 void ArenaObjects::add(ObjectType type, const SDL_Rect& area) {
-	entries_.push_back({ type, create(type, area, cellSize_) });
+	entries_.push_back({ type, create(type, area, cellSize_, renderer_) });
 	WorldObject* object = entries_.back().object.get();
 	if (object->isPickup()) {
 		pickups_.push_back({ type, { area.x + area.w / 2, area.y + area.h / 2 } });
 	}
-	for (int y = area.y; y < area.y + area.h; ++y) {
-		for (int x = area.x; x < area.x + area.w; ++x) {
+	// An object may occupy less than the placed area, like a tower's collision box.
+	const SDL_Rect footprint = object->cells();
+	for (int y = std::max(footprint.y, 0); y < std::min(footprint.y + footprint.h, gridHeight_); ++y) {
+		for (int x = std::max(footprint.x, 0); x < std::min(footprint.x + footprint.w, gridWidth_); ++x) {
 			cells_[cellIndex(x, y)] = object;
 			if (object->isDangerous()) {
 				danger_[cellIndex(x, y)] = 1;

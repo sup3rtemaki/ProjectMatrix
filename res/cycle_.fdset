@@ -1,0 +1,33 @@
+cycle-sheet.png
+animations: 4
+down
+frames: 1
+frame
+clip: 0 0 128 128
+offset: 64 64
+duration: 0.1
+index: 0
+
+right
+frames: 1
+frame
+clip: 128 0 128 128
+offset: 64 64
+duration: 0.1
+index: 0
+
+up
+frames: 1
+frame
+clip: 256 0 128 128
+offset: 64 64
+duration: 0.1
+index: 0
+
+left
+frames: 1
+frame
+clip: 384 0 128 128
+offset: 64 64
+duration: 0.1
+index: 0
