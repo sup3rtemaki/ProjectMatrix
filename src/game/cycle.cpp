@@ -76,8 +76,8 @@ void Cycle::draw(const RenderContext& context) {
 
 	const SDL_Rect& clip = currentFrame->clip;
 	const SDL_Rect dest = {
-		static_cast<int>(x) - context.camera.x - currentFrame->offset.x * size / clip.w,
-		static_cast<int>(y) - context.camera.y - currentFrame->offset.y * size / clip.h,
+		static_cast<int>(std::lround(x)) - context.camera.x - currentFrame->offset.x * size / clip.w,
+		static_cast<int>(std::lround(y)) - context.camera.y - currentFrame->offset.y * size / clip.h,
 		size, size };
 	SDL_RenderCopy(context.renderer, animSet->spriteSheet, &clip, &dest);
 }

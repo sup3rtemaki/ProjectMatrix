@@ -42,8 +42,7 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* st
 	keyboard_.DOWN = SDL_SCANCODE_S;
 	keyboard_.LEFT = SDL_SCANCODE_A;
 	keyboard_.RIGHT = SDL_SCANCODE_D;
-	cameraController_.isLerping = true;
-	cameraController_.lerp = 10.0f;
+	cameraController_.isLerping = false;
 	cameraController_.target = &player_;
 
 	hudUi_.setRenderer(renderer_);
@@ -301,10 +300,10 @@ void LightcyclesGame::update(float elapsedSeconds) {
 		}
 	}
 
+	updateCycles(std::min(elapsedSeconds, 0.25f));
+
 	cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
 	cameraController_.update(renderContext_.camera, level_.width * CELL_SIZE, level_.height * CELL_SIZE);
-
-	updateCycles(std::min(elapsedSeconds, 0.25f));
 }
 
 void LightcyclesGame::render() {

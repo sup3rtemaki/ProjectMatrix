@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.36631.11
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ProjectMatrix", "ProjectMatrix.vcxproj", "{2A5C2106-CB5E-461D-A9E9-A2BDAA8E615B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "engine", "submodules\Vertex2D\engine.vcxproj", "{A2B3C4D5-6789-4123-ABCD-EF0123456789}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{2A5C2106-CB5E-461D-A9E9-A2BDAA8E615B}.Release|x64.Build.0 = Release|x64
 		{2A5C2106-CB5E-461D-A9E9-A2BDAA8E615B}.Release|x86.ActiveCfg = Release|Win32
 		{2A5C2106-CB5E-461D-A9E9-A2BDAA8E615B}.Release|x86.Build.0 = Release|Win32
+		{A2B3C4D5-6789-4123-ABCD-EF0123456789}.Debug|x64.ActiveCfg = Debug|x64
+		{A2B3C4D5-6789-4123-ABCD-EF0123456789}.Debug|x64.Build.0 = Debug|x64
+		{A2B3C4D5-6789-4123-ABCD-EF0123456789}.Debug|x86.ActiveCfg = Debug|Win32
+		{A2B3C4D5-6789-4123-ABCD-EF0123456789}.Debug|x86.Build.0 = Debug|Win32
+		{A2B3C4D5-6789-4123-ABCD-EF0123456789}.Release|x64.ActiveCfg = Release|x64
+		{A2B3C4D5-6789-4123-ABCD-EF0123456789}.Release|x64.Build.0 = Release|x64
+		{A2B3C4D5-6789-4123-ABCD-EF0123456789}.Release|x86.ActiveCfg = Release|Win32
+		{A2B3C4D5-6789-4123-ABCD-EF0123456789}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
