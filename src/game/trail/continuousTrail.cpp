@@ -1,4 +1,4 @@
-#include "trail/continuousTrail.h"
+﻿#include "trail/continuousTrail.h"
 #include "rendering/shapes.h"
 
 #include <algorithm>
@@ -168,5 +168,29 @@ void ContinuousTrail::draw(SDL_Renderer* renderer, const SDL_Rect& camera, int h
 
 		drawThickSegment(renderer, x1, y1, x2, y2, coreThickness, coreColor);
 		drawJointCap(renderer, x1, y1, coreThickness / 2, coreColor);
+	}
+}
+
+void ContinuousTrail::queueDraw(DepthQueue& queue, SDL_Renderer* renderer, const SDL_Rect& camera, int hudOffsetY,
+	SDL_Color glowColor, SDL_Color coreColor, float headY) const {
+	if (vertices_.size() < 2 || renderer == nullptr) return;
+
+	const int glowThickness = static_cast<int>(DEFAULT_THICKNESS);
+	const int coreThickness = static_cast<int>(CORE_THICKNESS);
+	for (std::size_t i = 0; i + 1 < vertices_.size(); ++i) {
+		const int x1 = static_cast<int>(std::round(vertices_[i].x - camera.x));
+		const int y1 = static_cast<int>(std::round(vertices_[i].y - camera.y + hudOffsetY));
+		const int x2 = static_cast<int>(std::round(vertices_[i + 1].x - camera.x));
+		const int y2 = static_cast<int>(std::round(vertices_[i + 1].y - camera.y + hudOffsetY));
+
+		const float sortY = std::min(std::max(vertices_[i].y, vertices_[i + 1].y), headY - 0.02f);
+		queue.add(sortY, [=]() {
+			drawThickSegment(renderer, x1, y1, x2, y2, glowThickness, glowColor);
+			drawJointCap(renderer, x1, y1, glowThickness / 2, glowColor);
+		});
+		queue.add(sortY + 0.001f, [=]() {
+			drawThickSegment(renderer, x1, y1, x2, y2, coreThickness, coreColor);
+			drawJointCap(renderer, x1, y1, coreThickness / 2, coreColor);
+		});
 	}
 }

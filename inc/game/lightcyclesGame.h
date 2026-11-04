@@ -10,6 +10,7 @@
 #include "menu/gameConfig.h"
 #include "network/onlineMatchState.h"
 #include "renderContext.h"
+#include "rendering/cycleSkins.h"
 #include "rendering/depthQueue.h"
 #include "rendering/renderLayers.h"
 #include "rendering/tileMapRenderer.h"
@@ -58,7 +59,6 @@ private:
 	static constexpr int CELL_SIZE = 8;
 	static constexpr int MIN_GRID_WIDTH = (WINDOW_WIDTH + CELL_SIZE - 1) / CELL_SIZE;
 	static constexpr int MIN_GRID_HEIGHT = (VIEWPORT_HEIGHT + CELL_SIZE - 1) / CELL_SIZE;
-	inline static const std::string CYCLE_ANIMATION_SET = "cycle.fdset";
 	inline static const std::string LEVELS_FOLDER = "levels/";
 	inline static const std::string TEXTURES_FOLDER = "textures/";
 	inline static const std::vector<std::string> LEVEL_FILES = { "big_map.json" }; // Tiled maps in LEVELS_FOLDER
@@ -88,7 +88,7 @@ private:
 	RenderContext renderContext_;
 	KeyboardInput keyboard_;
 	CameraController cameraController_;
-	AnimationSet cycleAnimSet_;
+	CycleSkins cycleSkins_;
 	HudUi hudUi_;
 	Cycle player_;
 	std::vector<Cycle> enemies_;

@@ -17,7 +17,7 @@ public:
 	static const std::string TOWER_ANIM_ATTACK;
 
 	static constexpr float FIRE_RANGE = 320.0f;           // pixels
-	static constexpr float FIRE_INTERVAL_SECONDS = 3.0f;  // from a cycle entering the range to the shot, and between shots
+	static constexpr float FIRE_INTERVAL_SECONDS = 1.0f;  // from a cycle entering the range to the shot, and between shots
 
 	Tower(SDL_Rect cells, int cellSize, SDL_Renderer* renderer, const std::string& animFile = "animations/tower_1.fdset");
 

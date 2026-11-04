@@ -20,7 +20,8 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* st
 	: renderer_(renderer),
 	steamSession_(steamSession),
 	resPath_(getResourcePath()),
-	player_(PLAYER_GLOW, PLAYER_CORE, &cycleAnimSet_, CELL_SIZE),
+	cycleSkins_(renderer, resPath_),
+	player_(PLAYER_GLOW, PLAYER_CORE, cycleSkins_.forColor(PLAYER_CORE), CELL_SIZE),
 	objects_(CELL_SIZE) {
 	renderContext_.renderer = renderer_;
 	renderContext_.camera = { 0, 0, CAMERA_WIDTH, CAMERA_HEIGHT };
@@ -29,14 +30,6 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* st
 	worldTexture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888,
 		SDL_TEXTUREACCESS_TARGET, CAMERA_WIDTH, CAMERA_HEIGHT);
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-
-	if (std::ifstream(resPath_ + CYCLE_ANIMATION_SET).good()) {
-		std::list<DataGroupType> dataGroupTypes;
-		cycleAnimSet_.loadAnimationSet(CYCLE_ANIMATION_SET, dataGroupTypes, renderer_);
-	}
-	else {
-		std::cerr << "Animation set not found: " << resPath_ + CYCLE_ANIMATION_SET << std::endl;
-	}
 
 	keyboard_.UP = SDL_SCANCODE_W;
 	keyboard_.DOWN = SDL_SCANCODE_S;
@@ -95,7 +88,7 @@ bool LightcyclesGame::startMatch(const GameConfig& config) {
 	}
 
 	// Apply configured player color
-	player_ = Cycle(config.playerGlow, config.playerCore, &cycleAnimSet_, CELL_SIZE);
+	player_ = Cycle(config.playerGlow, config.playerCore, cycleSkins_.forColor(config.playerCore), CELL_SIZE);
 	cameraController_.target = &player_;
 
 	// Respect the configured number of AI opponents exactly. A zero-bot match must stay bot-free.
@@ -126,7 +119,7 @@ bool LightcyclesGame::startMatch(const GameConfig& config) {
 		while (static_cast<int>(enemies_.size()) < desiredAiCount) {
 			const auto& c = extraColors[extraIdx % 3];
 			const EnemyPersonality p = extraPersonalities[extraIdx % 5];
-			enemies_.emplace_back(c[0], c[1], &cycleAnimSet_, CELL_SIZE);
+			enemies_.emplace_back(c[0], c[1], cycleSkins_.forColor(c[1]), CELL_SIZE);
 			brains_.push_back(createEnemyBrain(p));
 			enemyDecisionTimers_.push_back(0.0f);
 			++extraIdx;
@@ -192,7 +185,7 @@ bool LightcyclesGame::loadLevel(std::size_t index) {
 	brains_.clear();
 	enemyDecisionTimers_.clear();
 	for (const EnemyDefinition& definition : level_.enemies) {
-		enemies_.emplace_back(definition.glow, definition.core, &cycleAnimSet_, CELL_SIZE);
+		enemies_.emplace_back(definition.glow, definition.core, cycleSkins_.forColor(definition.core), CELL_SIZE);
 		brains_.push_back(createEnemyBrain(definition.personality));
 		enemyDecisionTimers_.push_back(0.0f);
 	}
@@ -333,13 +326,12 @@ void LightcyclesGame::render() {
 	tileMap_.queueLayer(drawContext, RenderLayer::Objects, depthQueue_);
 	objects_.queueDraw(drawContext, depthQueue_);
 
-	// A trail sits right behind the cycle that leaves it.
+	// Each trail segment is queued below its cycle, sorted by its own Y.
 	const auto queueCycle = [&](Cycle& cycle) {
 		const float sortY = cycle.center().y;
-		depthQueue_.add(sortY - 0.01f, [&cycle, this, offsetY]() {
-			cycle.trail().draw(renderer_, renderContext_.camera, offsetY, cycle.glowColor(), cycle.coreColor());
-		});
 		depthQueue_.add(sortY, [&cycle, &drawContext]() { cycle.draw(drawContext); });
+		cycle.trail().queueDraw(depthQueue_, renderer_, renderContext_.camera, offsetY, cycle.glowColor(),
+			cycle.coreColor(), sortY);
 	};
 	for (Cycle& enemy : enemies_) {
 		queueCycle(enemy);

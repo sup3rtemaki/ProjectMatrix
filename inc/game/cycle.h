@@ -17,7 +17,7 @@ enum class Direction {
 class Cycle : public LivingEntity {
 public:
 	static constexpr std::size_t MAX_TRAIL_LENGTH = 40;
-	static constexpr int SPRITE_CELLS = 8; // sprite is drawn this many grid cells wide
+	static constexpr int SPRITE_CELLS = 10; // sprite is drawn this many grid cells wide
 	static constexpr int INITIAL_LIVES = 3;
 	static constexpr float BASE_SPEED = 160.0f; // pixels per second, before boosts
 

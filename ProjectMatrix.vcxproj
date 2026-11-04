@@ -179,6 +179,7 @@
     <ClCompile Include="src\game\level\spawnPlanner.cpp" />
     <ClCompile Include="src\game\rendering\shapes.cpp" />
     <ClCompile Include="src\game\rendering\tileMapRenderer.cpp" />
+    <ClCompile Include="src\game\rendering\cycleSkins.cpp" />
     <ClCompile Include="src\game\collision\geometry2D.cpp" />
     <ClCompile Include="src\game\trail\continuousTrail.cpp" />
     <ClCompile Include="src\game\ui\ui.cpp" />
@@ -212,6 +213,7 @@
     <ClInclude Include="inc\game\trail\continuousTrail.h" />
     <ClInclude Include="inc\game\rendering\shapes.h" />
     <ClInclude Include="inc\game\rendering\tileMapRenderer.h" />
+    <ClInclude Include="inc\game\rendering\cycleSkins.h" />
     <ClInclude Include="inc\game\rendering\depthQueue.h" />
     <ClInclude Include="inc\game\rendering\renderLayers.h" />
     <ClInclude Include="inc\game\ui\ui.h" />

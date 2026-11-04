@@ -1,6 +1,7 @@
 #pragma once
 
 #include "collision/geometry2D.h"
+#include "rendering/depthQueue.h"
 #include "SDL.h"
 
 #include <deque>
@@ -29,6 +30,11 @@ public:
 
 	void draw(SDL_Renderer* renderer, const SDL_Rect& camera, int hudOffsetY,
 		SDL_Color glowColor, SDL_Color coreColor) const;
+
+	// Queues each segment (glow, then core) sorted by its lower end, so walls and towers can hide parts of the trail.
+	// Segments are never sorted below headY, which keeps the trail under the cycle that leaves it.
+	void queueDraw(DepthQueue& queue, SDL_Renderer* renderer, const SDL_Rect& camera, int hudOffsetY,
+		SDL_Color glowColor, SDL_Color coreColor, float headY) const;
 
 private:
 	std::deque<Vec2> vertices_;
