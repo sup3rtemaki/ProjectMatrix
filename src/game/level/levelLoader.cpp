@@ -1,5 +1,6 @@
 #include "level/levelLoader.h"
 
+#include "rendering/renderLayers.h"
 #include "nlohmann/json.hpp"
 #include "tileson/tileson.hpp"
 
@@ -103,7 +104,8 @@ void addTileLayer(LevelDefinition& level, tson::Layer& layer, tson::Map& map, in
 			tileSize.x, tileSize.y };
 		const tson::Rect& source = tileObject.getDrawingRect();
 		level.tiles.push_back({ imageIndex(level, tile->getTileset()->getImage().filename().string()),
-			{ source.x, source.y, source.width, source.height }, destination });
+			{ source.x, source.y, source.width, source.height }, destination,
+			isWallLayer ? RenderLayer::Objects : RenderLayer::Ground });
 
 		if (isWallLayer) {
 			level.placements.push_back({ ObjectType::Wall,

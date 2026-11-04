@@ -1,4 +1,4 @@
-#include "rendering/tileMapRenderer.h"
+﻿#include "rendering/tileMapRenderer.h"
 
 #include "drawing_functions.h"
 
@@ -29,19 +29,35 @@ void TileMapRenderer::load(const LevelDefinition& level, SDL_Renderer* renderer,
 	tiles_ = level.tiles;
 }
 
-void TileMapRenderer::draw(const RenderContext& context) const {
-	const SDL_Rect& camera = context.camera;
+bool TileMapRenderer::isVisible(const TileSprite& tile, const SDL_Rect& camera) const {
+	const SDL_Rect& world = tile.destination;
+	return !(world.x + world.w < camera.x - CULL_MARGIN || world.x > camera.x + camera.w + CULL_MARGIN
+		|| world.y + world.h < camera.y - CULL_MARGIN || world.y > camera.y + camera.h + CULL_MARGIN);
+}
+
+void TileMapRenderer::drawTile(const RenderContext& context, const TileSprite& tile) const {
+	SDL_Texture* texture = textures_[static_cast<std::size_t>(tile.image)];
+	if (texture == nullptr) {
+		return;
+	}
+	const SDL_Rect& world = tile.destination;
+	const SDL_Rect screen = { world.x - context.camera.x, world.y - context.camera.y, world.w, world.h };
+	SDL_RenderCopy(context.renderer, texture, &tile.source, &screen);
+}
+
+void TileMapRenderer::drawLayer(const RenderContext& context, int layer) const {
 	for (const TileSprite& tile : tiles_) {
-		const SDL_Rect& world = tile.destination;
-		if (world.x + world.w < camera.x - CULL_MARGIN || world.x > camera.x + camera.w + CULL_MARGIN
-			|| world.y + world.h < camera.y - CULL_MARGIN || world.y > camera.y + camera.h + CULL_MARGIN) {
-			continue;
+		if (tile.layer == layer && isVisible(tile, context.camera)) {
+			drawTile(context, tile);
 		}
-		SDL_Texture* texture = textures_[static_cast<std::size_t>(tile.image)];
-		if (texture == nullptr) {
-			continue;
+	}
+}
+
+void TileMapRenderer::queueLayer(const RenderContext& context, int layer, DepthQueue& queue) const {
+	for (const TileSprite& tile : tiles_) {
+		if (tile.layer == layer && isVisible(tile, context.camera)) {
+			queue.add(static_cast<float>(tile.destination.y + tile.destination.h),
+				[this, &context, &tile]() { drawTile(context, tile); });
 		}
-		const SDL_Rect screen = { world.x - camera.x, world.y - camera.y, world.w, world.h };
-		SDL_RenderCopy(context.renderer, texture, &tile.source, &screen);
 	}
 }

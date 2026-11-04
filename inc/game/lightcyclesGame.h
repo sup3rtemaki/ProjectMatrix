@@ -10,6 +10,8 @@
 #include "menu/gameConfig.h"
 #include "network/onlineMatchState.h"
 #include "renderContext.h"
+#include "rendering/depthQueue.h"
+#include "rendering/renderLayers.h"
 #include "rendering/tileMapRenderer.h"
 #include "ui/hudUi.h"
 #include "world/arenaObjects.h"
@@ -95,6 +97,7 @@ private:
 	OnlineMatchState onlineMatch_;
 	ArenaObjects objects_;
 	TileMapRenderer tileMap_;
+	DepthQueue depthQueue_;
 	LevelDefinition level_;
 	std::size_t levelIndex_ = 0;
 	std::size_t levelCount_ = 0;

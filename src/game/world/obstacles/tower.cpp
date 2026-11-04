@@ -65,9 +65,7 @@ void Tower::update() {
 	updateAnimation();
 }
 
-void Tower::draw(const RenderContext& context) {
-	Entity::draw(context);
-
+void Tower::drawProjectiles(const RenderContext& context) {
 	for (const std::unique_ptr<Projectile>& projectile : projectiles_) {
 		projectile->draw(context);
 	}

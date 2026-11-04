@@ -189,6 +189,8 @@
     <ClCompile Include="src\game\network\steamSession.cpp" />
     <ClCompile Include="src\game\network\onlineMatchState.cpp" />
     <ClCompile Include="src\game\world\obstacles\tower.cpp" />
+    <ClCompile Include="src\game\world\projectiles\projectile.cpp" />
+    <ClCompile Include="src\game\world\projectiles\projectileFactory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\game\cycle.h" />
@@ -210,6 +212,8 @@
     <ClInclude Include="inc\game\trail\continuousTrail.h" />
     <ClInclude Include="inc\game\rendering\shapes.h" />
     <ClInclude Include="inc\game\rendering\tileMapRenderer.h" />
+    <ClInclude Include="inc\game\rendering\depthQueue.h" />
+    <ClInclude Include="inc\game\rendering\renderLayers.h" />
     <ClInclude Include="inc\game\ui\ui.h" />
     <ClInclude Include="inc\game\ui\hudUi.h" />
     <ClInclude Include="inc\game\menu\gameConfig.h" />
@@ -222,6 +226,8 @@
     <ClInclude Include="inc\game\world\worldObject.h" />
     <ClInclude Include="inc\game\world\obstacles\wall.h" />
     <ClInclude Include="inc\game\world\obstacles\tower.h" />
+    <ClInclude Include="inc\game\world\projectiles\projectile.h" />
+    <ClInclude Include="inc\game\world\projectiles\projectileFactory.h" />
     <ClInclude Include="inc\game\world\pickups\boostPickup.h" />
     <ClInclude Include="inc\game\world\pickups\longTrailPickup.h" />
     <ClInclude Include="inc\game\world\traps\mineTrap.h" />

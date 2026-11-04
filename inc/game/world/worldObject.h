@@ -35,6 +35,9 @@ public:
 
 	void changeAnimation(int, bool, string = "") override {}
 
+	// Drawn in the projectile layer, above everything else; objects that shoot override it.
+	virtual void drawProjectiles(const RenderContext& /*context*/) {}
+
 	// True for objects that stop projectiles.
 	virtual bool blocksProjectiles() const { return false; }
 	void setSolidQuery(SolidQuery query) { solidQuery_ = std::move(query); }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "level/levelDefinition.h"
+#include "rendering/depthQueue.h"
 #include "world/pickupSighting.h"
 #include "world/worldObject.h"
 
@@ -19,7 +20,9 @@ public:
 	void update(float elapsedSeconds, const std::vector<std::uint8_t>& occupied, const std::vector<Cycle*>& cycles);
 	// Triggers the object under the cell, if any.
 	void touch(Cycle& cycle, SDL_Point cell);
-	void draw(const RenderContext& context);
+	// Queues the objects in the Objects layer, sorted by their Y. The context must outlive queue.flush().
+	void queueDraw(const RenderContext& context, DepthQueue& queue);
+	void drawProjectiles(const RenderContext& context);
 	void setRenderer(SDL_Renderer* renderer) { renderer_ = renderer; }
 
 	// 1 on cells holding something dangerous, for the enemy AI.

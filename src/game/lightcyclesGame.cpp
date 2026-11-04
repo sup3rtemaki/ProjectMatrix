@@ -327,28 +327,38 @@ void LightcyclesGame::render() {
 	SDL_SetRenderDrawColor(renderer_, 22, 32, 45, SDL_ALPHA_OPAQUE);
 	SDL_RenderDrawRect(renderer_, &arena);
 
-	tileMap_.draw(drawContext);
-	objects_.draw(drawContext);
+	// Layer 0: ground. Layer 1: walls, objects, trails and cycles sorted by Y. Layer 2: projectiles.
+	tileMap_.drawLayer(drawContext, RenderLayer::Ground);
 
-	player_.trail().draw(renderer_, renderContext_.camera, offsetY, player_.glowColor(), player_.coreColor());
-	for (const Cycle& enemy : enemies_) {
-		enemy.trail().draw(renderer_, renderContext_.camera, offsetY, enemy.glowColor(), enemy.coreColor());
-	}
+	tileMap_.queueLayer(drawContext, RenderLayer::Objects, depthQueue_);
+	objects_.queueDraw(drawContext, depthQueue_);
 
+	// A trail sits right behind the cycle that leaves it.
+	const auto queueCycle = [&](Cycle& cycle) {
+		const float sortY = cycle.center().y;
+		depthQueue_.add(sortY - 0.01f, [&cycle, this, offsetY]() {
+			cycle.trail().draw(renderer_, renderContext_.camera, offsetY, cycle.glowColor(), cycle.coreColor());
+		});
+		depthQueue_.add(sortY, [&cycle, &drawContext]() { cycle.draw(drawContext); });
+	};
 	for (Cycle& enemy : enemies_) {
-		enemy.draw(drawContext);
+		queueCycle(enemy);
 	}
 	if (onlineMatch_.enabled) {
 		for (const OnlinePlayerState& remote : onlineMatch_.remotePlayers) {
-			const int x = static_cast<int>(remote.x) - renderContext_.camera.x;
-			const int y = HUD_HEIGHT + static_cast<int>(remote.y) - renderContext_.camera.y;
-			const SDL_Rect remoteRect = { x - 5, y - 5, 10, 10 };
-			SDL_SetRenderDrawColor(renderer_, 255, 160, 85, 255);
-			SDL_RenderFillRect(renderer_, &remoteRect);
+			depthQueue_.add(remote.y, [this, &remote]() {
+				const int x = static_cast<int>(remote.x) - renderContext_.camera.x;
+				const int y = HUD_HEIGHT + static_cast<int>(remote.y) - renderContext_.camera.y;
+				const SDL_Rect remoteRect = { x - 5, y - 5, 10, 10 };
+				SDL_SetRenderDrawColor(renderer_, 255, 160, 85, 255);
+				SDL_RenderFillRect(renderer_, &remoteRect);
+			});
 		}
 	}
-	player_.draw(drawContext);
+	queueCycle(player_);
+	depthQueue_.flush();
 
+	objects_.drawProjectiles(drawContext);
 	if (useTexture) {
 		SDL_SetRenderTarget(renderer_, nullptr);
 		const SDL_Rect gameArea = { 0, HUD_HEIGHT, WINDOW_WIDTH, VIEWPORT_HEIGHT };

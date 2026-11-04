@@ -38,6 +38,7 @@ struct TileSprite {
 	int image;            // index into LevelDefinition::tileImages
 	SDL_Rect source;      // in the tileset image, pixels
 	SDL_Rect destination; // in the world, pixels
+	int layer;            // RenderLayer the tile is drawn in
 };
 
 struct LevelDefinition {

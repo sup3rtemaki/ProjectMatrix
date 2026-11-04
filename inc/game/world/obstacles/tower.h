@@ -27,7 +27,8 @@ public:
 
 	void tick(float elapsedSeconds, const std::vector<Cycle*>& cycles) override;
 	void update() override;
-	void draw(const RenderContext& context) override;
+	void draw(const RenderContext& context) override { Entity::draw(context); }
+	void drawProjectiles(const RenderContext& context) override;
 	void changeAnimation(int newState, bool resetFrameToBeginning, string animName = "") override;
 	void updateAnimation();
 	void updateCollisionBox() override;

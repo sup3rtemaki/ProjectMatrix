@@ -108,9 +108,16 @@ void ArenaObjects::touch(Cycle& cycle, SDL_Point cell) {
 	remove(object);
 }
 
-void ArenaObjects::draw(const RenderContext& context) {
+void ArenaObjects::queueDraw(const RenderContext& context, DepthQueue& queue) {
 	for (Entry& entry : entries_) {
-		entry.object->draw(context);
+		WorldObject* object = entry.object.get();
+		queue.add(object->y, [object, &context]() { object->draw(context); });
+	}
+}
+
+void ArenaObjects::drawProjectiles(const RenderContext& context) {
+	for (Entry& entry : entries_) {
+		entry.object->drawProjectiles(context);
 	}
 }
 
