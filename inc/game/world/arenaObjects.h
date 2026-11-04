@@ -27,6 +27,9 @@ public:
 	// Power-ups currently in the arena, for the enemy AI.
 	const std::vector<PickupSighting>& pickups() const;
 
+	// True if the pixel box leaves the arena or overlaps an object that blocks projectiles.
+	bool blocksProjectiles(const SDL_Rect& box) const;
+
 	std::vector<RectF> getWallBoxes() const;
 	std::vector<Vec2> getMinePositions() const;
 

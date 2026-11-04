@@ -1,5 +1,6 @@
 #pragma once
 
+#include "world/projectiles/projectileFactory.h"
 #include "world/worldObject.h"
 
 #include <memory>
@@ -17,10 +18,6 @@ public:
 
 	static constexpr float FIRE_RANGE = 320.0f;           // pixels
 	static constexpr float FIRE_INTERVAL_SECONDS = 3.0f;  // from a cycle entering the range to the shot, and between shots
-	static constexpr float PROJECTILE_SPEED = 220.0f;     // pixels per second
-	static constexpr float PROJECTILE_LIFETIME = 2.0f;
-	static constexpr float PROJECTILE_HIT_RADIUS = 10.0f;
-	static constexpr int PROJECTILE_DRAW_RADIUS = 5;
 
 	Tower(SDL_Rect cells, int cellSize, SDL_Renderer* renderer, const std::string& animFile = "animations/tower_1.fdset");
 
@@ -36,12 +33,6 @@ public:
 	void updateCollisionBox() override;
 
 private:
-	struct Projectile {
-		Vec2 position;
-		Vec2 velocity;
-		float remainingSeconds;
-	};
-
 	static bool isTargetable(const Cycle& cycle);
 
 	void applyCollisionBoxFromCurrentFrame();
@@ -55,6 +46,7 @@ private:
 	int boxOffsetX_ = 0; // collision box relative to the pivot
 	int boxOffsetY_ = 0;
 	float chargeSeconds_ = 0.0f;
-	std::vector<Projectile> projectiles_;
-	class Cycle* target;
+	std::unique_ptr<ProjectileFactory> projectileFactory_;
+	std::vector<std::unique_ptr<Projectile>> projectiles_;
+	Cycle* target = nullptr;
 };

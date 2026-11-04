@@ -122,6 +122,28 @@ const std::vector<PickupSighting>& ArenaObjects::pickups() const {
 	return pickups_;
 }
 
+bool ArenaObjects::blocksProjectiles(const SDL_Rect& box) const {
+	if (box.x < 0 || box.y < 0) {
+		return true;
+	}
+	const int left = box.x / cellSize_;
+	const int top = box.y / cellSize_;
+	const int right = (box.x + box.w - 1) / cellSize_;
+	const int bottom = (box.y + box.h - 1) / cellSize_;
+	if (right >= gridWidth_ || bottom >= gridHeight_) {
+		return true;
+	}
+	for (int y = top; y <= bottom; ++y) {
+		for (int x = left; x <= right; ++x) {
+			const WorldObject* object = cells_[cellIndex(x, y)];
+			if (object != nullptr && object->blocksProjectiles()) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 std::vector<RectF> ArenaObjects::getWallBoxes() const {
 	std::vector<RectF> boxes;
 	for (const Entry& entry : entries_) {
@@ -199,6 +221,7 @@ bool ArenaObjects::isAreaFree(const SDL_Rect& area, const std::vector<std::uint8
 void ArenaObjects::add(ObjectType type, const SDL_Rect& area) {
 	entries_.push_back({ type, create(type, area, cellSize_, renderer_) });
 	WorldObject* object = entries_.back().object.get();
+	object->setSolidQuery([this](const SDL_Rect& box) { return blocksProjectiles(box); });
 	if (object->isPickup()) {
 		pickups_.push_back({ type, { area.x + area.w / 2, area.y + area.h / 2 } });
 	}

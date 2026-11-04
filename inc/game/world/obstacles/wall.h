@@ -9,6 +9,7 @@ public:
 	void onTouch(Cycle& cycle) override { cycle.crash(); }
 	bool isDangerous() const override { return true; }
 	bool isConsumedOnTouch() const override { return false; }
+	bool blocksProjectiles() const override { return true; }
 
 	// The Walls tile layer draws the art; this entity is only the collision.
 	void draw(const RenderContext& context) override {

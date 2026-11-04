@@ -19,6 +19,7 @@ public:
 	static constexpr std::size_t MAX_TRAIL_LENGTH = 40;
 	static constexpr int SPRITE_CELLS = 8; // sprite is drawn this many grid cells wide
 	static constexpr int INITIAL_LIVES = 3;
+	static constexpr float BASE_SPEED = 160.0f; // pixels per second, before boosts
 
 	// animSet is shared and owned by the caller.
 	Cycle(SDL_Color glowColor, SDL_Color coreColor, AnimationSet* animSet, int cellSize);
@@ -60,6 +61,9 @@ public:
 	bool isRespawning() const { return respawnTimer_ > 0.0f; }
 	void startRespawn(float seconds) { respawnTimer_ = seconds; }
 	void updateRespawn(float dt) { if (respawnTimer_ > 0.0f) respawnTimer_ -= dt; }
+
+	// Current speed in pixels per second, including active boosts.
+	float speed() const { return BASE_SPEED * effects_.speedMultiplier(); }
 
 	CycleEffects& effects() { return effects_; }
 	float maxPixelTrailLength() const { return static_cast<float>((MAX_TRAIL_LENGTH + effects_.trailBonus()) * cellSize_); }

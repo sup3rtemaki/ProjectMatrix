@@ -56,7 +56,6 @@ private:
 	static constexpr int CELL_SIZE = 8;
 	static constexpr int MIN_GRID_WIDTH = (WINDOW_WIDTH + CELL_SIZE - 1) / CELL_SIZE;
 	static constexpr int MIN_GRID_HEIGHT = (VIEWPORT_HEIGHT + CELL_SIZE - 1) / CELL_SIZE;
-	static constexpr float CYCLE_SPEED = CELL_SIZE / 0.1f; // pixels per second
 	inline static const std::string CYCLE_ANIMATION_SET = "cycle.fdset";
 	inline static const std::string LEVELS_FOLDER = "levels/";
 	inline static const std::string TEXTURES_FOLDER = "textures/";

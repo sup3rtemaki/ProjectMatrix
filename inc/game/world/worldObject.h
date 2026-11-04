@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cycle.h"
+#include "world/solidQuery.h"
 
 #include <vector>
 
@@ -34,9 +35,14 @@ public:
 
 	void changeAnimation(int, bool, string = "") override {}
 
+	// True for objects that stop projectiles.
+	virtual bool blocksProjectiles() const { return false; }
+	void setSolidQuery(SolidQuery query) { solidQuery_ = std::move(query); }
+
 	const SDL_Rect& cells() const { return cells_; }
 
 protected:
+	SolidQuery solidQuery_;
 	SDL_Rect cells_;
 	int cellSize_;
 };

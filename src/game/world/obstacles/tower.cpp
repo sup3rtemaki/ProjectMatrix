@@ -1,8 +1,9 @@
-#include "world/obstacles/tower.h"
+﻿#include "world/obstacles/tower.h"
 
 #include "groupBox.h"
 #include "rendering/shapes.h"
 
+#include <algorithm>
 #include <list>
 
 const int Tower::TOWER_STATE_IDLE = 0;
@@ -25,6 +26,7 @@ Tower::Tower(SDL_Rect cells, int cellSize, SDL_Renderer* renderer, const std::st
 
 	localAnimSet_ = std::make_unique<AnimationSet>();
 	localAnimSet_->loadAnimationSet(animFile, dataGroupTypes, renderer);
+	projectileFactory_ = std::make_unique<ProjectileFactory>(renderer);
 	animSet = localAnimSet_.get();
 	state = TOWER_STATE_IDLE;
 	solid = true;
@@ -66,10 +68,8 @@ void Tower::update() {
 void Tower::draw(const RenderContext& context) {
 	Entity::draw(context);
 
-	SDL_SetRenderDrawColor(context.renderer, 255, 120, 30, SDL_ALPHA_OPAQUE);
-	for (const Projectile& projectile : projectiles_) {
-		shapes::fillCircle(context.renderer, static_cast<int>(projectile.position.x) - context.camera.x,
-			static_cast<int>(projectile.position.y) - context.camera.y, PROJECTILE_DRAW_RADIUS);
+	for (const std::unique_ptr<Projectile>& projectile : projectiles_) {
+		projectile->draw(context);
 	}
 }
 
@@ -118,7 +118,9 @@ void Tower::updateAnimation() {
 		currentFrame = currentAnim->getNextFrame(currentFrame);
 	}
 	else if (state == TOWER_STATE_ATTACK) {
-		fireAt(*target);
+		if (target != nullptr) {
+			fireAt(*target);
+		}
 		changeAnimation(TOWER_STATE_IDLE, true);
 	}
 	else {
@@ -215,34 +217,15 @@ void Tower::fireAt(const Cycle& target) {
 	if (distance <= 0.0f) {
 		return;
 	}
-	const float scale = PROJECTILE_SPEED / distance;
 	const Vec2 toTarget = target.center() - origin;
-	projectiles_.push_back({ origin, { toTarget.x * scale, toTarget.y * scale }, PROJECTILE_LIFETIME });
-	changeAnimation(TOWER_STATE_IDLE, true);
+	projectiles_.push_back(projectileFactory_->create(ProjectileType::Triangle, origin,
+		{ toTarget.x / distance, toTarget.y / distance }));
 }
 
 void Tower::updateProjectiles(const std::vector<Cycle*>& cycles) {
-	for (std::size_t index = 0; index < projectiles_.size();) {
-		Projectile& projectile = projectiles_[index];
-		projectile.position.x += projectile.velocity.x * deltaTime;
-		projectile.position.y += projectile.velocity.y * deltaTime;
-		projectile.remainingSeconds -= deltaTime;
-
-		bool spent = projectile.remainingSeconds <= 0.0f;
-		for (Cycle* cycle : cycles) {
-			if (cycle != nullptr && isTargetable(*cycle)
-				&& geom::distance(projectile.position, cycle->center()) <= PROJECTILE_HIT_RADIUS) {
-				cycle->crash();
-				spent = true;
-				break;
-			}
-		}
-
-		if (spent) {
-			projectiles_.erase(projectiles_.begin() + static_cast<std::ptrdiff_t>(index));
-		}
-		else {
-			++index;
-		}
+	for (const std::unique_ptr<Projectile>& projectile : projectiles_) {
+		projectile->tick(deltaTime, cycles, solidQuery_);
 	}
+	projectiles_.erase(std::remove_if(projectiles_.begin(), projectiles_.end(),
+		[](const std::unique_ptr<Projectile>& projectile) { return projectile->expired(); }), projectiles_.end());
 }

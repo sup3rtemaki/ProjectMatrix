@@ -477,7 +477,7 @@ void LightcyclesGame::updateCycles(float elapsedSeconds) {
 		updateCycleRespawn(enemy, elapsedSeconds);
 	}
 
-	float fastest = 1.0f;
+	float fastest = 2.0f;
 	if (player_.alive() && !player_.isRespawning()) {
 		player_.effects().update(elapsedSeconds);
 		fastest = std::max(fastest, player_.effects().speedMultiplier());
@@ -505,7 +505,7 @@ void LightcyclesGame::updateCycles(float elapsedSeconds) {
 	}
 
 	// Sub-steps of at most 4 pixels so no segment passes through another
-	const float maxDistance = CYCLE_SPEED * fastest * elapsedSeconds;
+	const float maxDistance = Cycle::BASE_SPEED * fastest * elapsedSeconds;
 	const int steps = std::max(1, static_cast<int>(std::ceil(maxDistance / 4.0f)));
 
 	for (int step = 0; step < steps && result_ == GameResult::Running; ++step) {
@@ -545,7 +545,7 @@ void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, std::size_t ene
 	}
 
 	const Vec2 before = cycle.center();
-	cycle.advance(CYCLE_SPEED * cycle.effects().speedMultiplier() * elapsedSeconds);
+	cycle.advance(cycle.speed() * elapsedSeconds);
 	const Vec2 after = cycle.center();
 
 	Cycle* killer = nullptr;
