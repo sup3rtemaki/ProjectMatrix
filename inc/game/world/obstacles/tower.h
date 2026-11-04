@@ -56,4 +56,5 @@ private:
 	int boxOffsetY_ = 0;
 	float chargeSeconds_ = 0.0f;
 	std::vector<Projectile> projectiles_;
+	class Cycle* target;
 };

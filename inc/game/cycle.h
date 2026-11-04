@@ -17,7 +17,7 @@ enum class Direction {
 class Cycle : public LivingEntity {
 public:
 	static constexpr std::size_t MAX_TRAIL_LENGTH = 40;
-	static constexpr int SPRITE_CELLS = 6; // sprite is drawn this many grid cells wide
+	static constexpr int SPRITE_CELLS = 8; // sprite is drawn this many grid cells wide
 	static constexpr int INITIAL_LIVES = 3;
 
 	// animSet is shared and owned by the caller.
@@ -33,6 +33,7 @@ public:
 
 	void draw(const RenderContext& context) override;
 	void changeAnimation(int newState, bool resetFrameToBeginning, string animName = "") override;
+	void updateAnimation(float elapsedSeconds); // advances and loops the current animation
 	void updateDamages() override {}
 	void die() override { crash(); }
 

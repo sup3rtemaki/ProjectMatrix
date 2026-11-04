@@ -493,6 +493,9 @@ void LightcyclesGame::updateCycles(float elapsedSeconds) {
 	for (Cycle& enemy : enemies_) {
 		cycles.push_back(&enemy);
 	}
+	for (Cycle* cycle : cycles) {
+		cycle->updateAnimation(elapsedSeconds);
+	}
 	objects_.update(elapsedSeconds, dummyOccupied, cycles);
 	// Objects such as towers can crash a cycle outside its own movement.
 	for (Cycle* cycle : cycles) {

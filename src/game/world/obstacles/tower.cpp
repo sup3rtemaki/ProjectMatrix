@@ -118,6 +118,7 @@ void Tower::updateAnimation() {
 		currentFrame = currentAnim->getNextFrame(currentFrame);
 	}
 	else if (state == TOWER_STATE_ATTACK) {
+		fireAt(*target);
 		changeAnimation(TOWER_STATE_IDLE, true);
 	}
 	else {
@@ -191,16 +192,19 @@ Cycle* Tower::nearestCycleInRange(const std::vector<Cycle*>& cycles) const {
 }
 
 void Tower::updateAttack(const std::vector<Cycle*>& cycles) {
-	const Cycle* target = nearestCycleInRange(cycles);
-	if (target == nullptr) {
-		chargeSeconds_ = 0.0f;
-		return;
+	if (currentAnim->name != TOWER_ANIM_ATTACK) {
+		target = nearestCycleInRange(cycles);
+		if (target == nullptr) {
+			chargeSeconds_ = 0.0f;
+			return;
+		}
 	}
 
 	chargeSeconds_ += deltaTime;
 	if (chargeSeconds_ >= FIRE_INTERVAL_SECONDS) {
 		chargeSeconds_ = 0.0f;
-		fireAt(*target);
+		changeAnimation(TOWER_STATE_ATTACK, true);
+		//fireAt(*target);
 	}
 }
 
@@ -214,7 +218,7 @@ void Tower::fireAt(const Cycle& target) {
 	const float scale = PROJECTILE_SPEED / distance;
 	const Vec2 toTarget = target.center() - origin;
 	projectiles_.push_back({ origin, { toTarget.x * scale, toTarget.y * scale }, PROJECTILE_LIFETIME });
-	changeAnimation(TOWER_STATE_ATTACK, true);
+	changeAnimation(TOWER_STATE_IDLE, true);
 }
 
 void Tower::updateProjectiles(const std::vector<Cycle*>& cycles) {

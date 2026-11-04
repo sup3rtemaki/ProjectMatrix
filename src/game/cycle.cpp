@@ -57,6 +57,21 @@ void Cycle::changeAnimation(int newState, bool, string animName) {
 	}
 	currentAnim = animSet->getAnimation(animName.empty() ? animationName(direction_) : animName);
 	currentFrame = currentAnim != nullptr ? currentAnim->getFrame(0) : nullptr;
+	frameTimer = 0;
+}
+
+void Cycle::updateAnimation(float elapsedSeconds) {
+	if (currentAnim == nullptr || currentFrame == nullptr || !alive_ || isRespawning()) {
+		return;
+	}
+
+	frameTimer += elapsedSeconds;
+	while (currentFrame->duration > 0 && frameTimer >= currentFrame->duration) {
+		frameTimer -= currentFrame->duration;
+		currentFrame = currentFrame->frameNumber != currentAnim->getEndFrameNumber()
+			? currentAnim->getNextFrame(currentFrame)
+			: currentAnim->getFrame(0);
+	}
 }
 
 void Cycle::draw(const RenderContext& context) {
