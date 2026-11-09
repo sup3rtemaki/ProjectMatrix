@@ -1,4 +1,4 @@
-#include "lightcyclesGame.h"
+﻿#include "lightcyclesGame.h"
 
 #include "level/levelLoader.h"
 #include "level/spawnPlanner.h"
@@ -31,10 +31,6 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* st
 		SDL_TEXTUREACCESS_TARGET, CAMERA_WIDTH, CAMERA_HEIGHT);
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
-	keyboard_.UP = SDL_SCANCODE_W;
-	keyboard_.DOWN = SDL_SCANCODE_S;
-	keyboard_.LEFT = SDL_SCANCODE_A;
-	keyboard_.RIGHT = SDL_SCANCODE_D;
 	cameraController_.isLerping = false;
 	cameraController_.target = &player_;
 
@@ -98,9 +94,6 @@ bool LightcyclesGame::startMatch(const GameConfig& config) {
 		if (!brains_.empty()) {
 			brains_.pop_back();
 		}
-		if (!enemyDecisionTimers_.empty()) {
-			enemyDecisionTimers_.pop_back();
-		}
 	}
 	if (static_cast<int>(enemies_.size()) < desiredAiCount) {
 		const EnemyPersonality extraPersonalities[] = {
@@ -121,7 +114,6 @@ bool LightcyclesGame::startMatch(const GameConfig& config) {
 			const EnemyPersonality p = extraPersonalities[extraIdx % 5];
 			enemies_.emplace_back(c[0], c[1], cycleSkins_.forColor(c[1]), CELL_SIZE);
 			brains_.push_back(createEnemyBrain(p));
-			enemyDecisionTimers_.push_back(0.0f);
 			++extraIdx;
 		}
 	}
@@ -133,6 +125,7 @@ bool LightcyclesGame::startMatch(const GameConfig& config) {
 
 void LightcyclesGame::returnToMenu() {
 	inMenu_ = true;
+	accelerating_ = braking_ = steeringLeft_ = steeringRight_ = false;
 }
 
 std::string LightcyclesGame::levelPath(std::size_t index) const {
@@ -183,11 +176,9 @@ bool LightcyclesGame::loadLevel(std::size_t index) {
 	tileMap_.load(level_, renderer_, resPath_ + TEXTURES_FOLDER);
 	enemies_.clear();
 	brains_.clear();
-	enemyDecisionTimers_.clear();
 	for (const EnemyDefinition& definition : level_.enemies) {
 		enemies_.emplace_back(definition.glow, definition.core, cycleSkins_.forColor(definition.core), CELL_SIZE);
 		brains_.push_back(createEnemyBrain(definition.personality));
-		enemyDecisionTimers_.push_back(0.0f);
 	}
 	reset();
 	return true;
@@ -202,6 +193,19 @@ void LightcyclesGame::handleEvent(SDL_Event& event) {
 		running_ = false;
 		exitRequested_ = true;
 		return;
+	}
+	if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+		accelerating_ = braking_ = steeringLeft_ = steeringRight_ = false;
+	}
+	if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
+		const bool pressed = event.type == SDL_KEYDOWN;
+		switch (event.key.keysym.scancode) {
+		case SDL_SCANCODE_W: accelerating_ = pressed; break;
+		case SDL_SCANCODE_S: braking_ = pressed; break;
+		case SDL_SCANCODE_A: steeringLeft_ = pressed; break;
+		case SDL_SCANCODE_D: steeringRight_ = pressed; break;
+		default: break;
+		}
 	}
 
 	if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
@@ -228,25 +232,6 @@ void LightcyclesGame::handleEvent(SDL_Event& event) {
 		}
 	}
 
-	if (result_ != GameResult::Running) {
-		return;
-	}
-
-	for (const InputCommand& command : keyboard_.update(&event)) {
-		if (command.type == InputCommandType::Move) {
-			player_.setDirectionFromAngle(command.angle);
-			if (onlineMatch_.enabled) {
-				OnlineInputPacket packet;
-				packet.playerId = onlineMatch_.localPlayerId;
-				packet.angle = command.angle;
-				packet.turnQueued = true;
-				onlineMatch_.queueInput(packet.playerId, packet.angle, packet.turnQueued);
-				if (steamSession_ != nullptr) {
-					steamSession_->queueInputPacket(packet);
-				}
-			}
-		}
-	}
 }
 
 void LightcyclesGame::update(float elapsedSeconds) {
@@ -254,6 +239,7 @@ void LightcyclesGame::update(float elapsedSeconds) {
 		return;
 	}
 
+	const std::uint32_t previousOnlineTick = onlineMatch_.tick;
 	if (onlineMatch_.enabled) {
 		onlineMatch_.advanceTick(elapsedSeconds);
 		if (steamSession_ != nullptr) {
@@ -294,6 +280,15 @@ void LightcyclesGame::update(float elapsedSeconds) {
 	}
 
 	updateCycles(std::min(elapsedSeconds, 0.25f));
+	if (onlineMatch_.enabled && onlineMatch_.tick != previousOnlineTick
+		&& steeringLeft_ != steeringRight_ && player_.alive() && !player_.isRespawning()) {
+		OnlineInputPacket packet;
+		packet.playerId = onlineMatch_.localPlayerId;
+		packet.angle = player_.headingDegrees();
+		packet.turnQueued = true;
+		onlineMatch_.queueInput(packet.playerId, packet.angle, packet.turnQueued);
+		if (steamSession_ != nullptr) steamSession_->queueInputPacket(packet);
+	}
 
 	cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
 	cameraController_.update(renderContext_.camera, level_.width * CELL_SIZE, level_.height * CELL_SIZE);
@@ -426,53 +421,58 @@ ArenaView LightcyclesGame::buildArenaView() const {
 	return arena;
 }
 
+// The cycle's nose box, swept from where it was to where it is now, is tested against the arena,
+// the walls and other cycles' trails. Steps are at most 4 px, so nothing is skipped over.
+// Its own trail always touches the box, so that one is tested with the head's path only.
 bool LightcyclesGame::checkCycleCollision(const Cycle& cycle, Vec2 before, Vec2 after, Cycle*& outKiller) {
 	outKiller = nullptr;
 	const float worldW = static_cast<float>(level_.width * CELL_SIZE);
 	const float worldH = static_cast<float>(level_.height * CELL_SIZE);
+	const OrientedBox start = cycle.terrainBoxAt(before);
+	const OrientedBox end = cycle.terrainBoxAt(after);
+	const Vec2 displacement = after - before;
+	const RectF world = { 0.0f, 0.0f, worldW, worldH };
 
 	// 1. Boundary walls
-	if (after.x < 4.0f || after.x > worldW - 4.0f || after.y < 4.0f || after.y > worldH - 4.0f) {
+	if (!geom::boxInsideRect(start, world) || !geom::boxInsideRect(end, world)) {
 		return true;
 	}
 
 	// 2. Obstacle walls
 	const auto wallBoxes = objects_.getWallBoxes();
 	for (const RectF& wall : wallBoxes) {
-		if (geom::segmentIntersectAABB(before, after, wall)) {
+		if (geom::sweptBoxIntersectsBox(start, displacement, geom::orientedBox(wall, { 0.0f, 0.0f }, 0.0f))) {
 			return true;
 		}
 	}
 
-	// 3. Player trail
-	if (player_.alive() && !player_.isRespawning()) {
-		const bool isSelf = (&cycle == &player_);
-		const auto segs = player_.trail().getSegments(&player_, isSelf, 28.0f);
-		for (const LineSegment& seg : segs) {
-			if (geom::intersectSegments(before, after, seg.a, seg.b)) {
-				outKiller = const_cast<Cycle*>(&player_);
+	// 3. Trails
+	const auto hitsTrail = [&](const Cycle& owner) {
+		if (!owner.alive() || owner.isRespawning()) {
+			return false;
+		}
+		const bool isSelf = (&cycle == &owner);
+		for (const LineSegment& seg : owner.trail().getSegments(&owner, isSelf, 28.0f)) {
+			const bool hit = isSelf ? geom::intersectSegments(before, after, seg.a, seg.b)
+				: geom::sweptBoxIntersectsSegment(start, displacement, seg.a, seg.b);
+			if (hit) {
+				outKiller = const_cast<Cycle*>(&owner);
 				return true;
 			}
 		}
+		return false;
+	};
+	if (hitsTrail(player_)) {
+		return true;
 	}
-
-	// 4. Enemy trails
 	for (const Cycle& enemy : enemies_) {
-		if (enemy.alive() && !enemy.isRespawning()) {
-			const bool isSelf = (&cycle == &enemy);
-			const auto segs = enemy.trail().getSegments(&enemy, isSelf, 28.0f);
-			for (const LineSegment& seg : segs) {
-				if (geom::intersectSegments(before, after, seg.a, seg.b)) {
-					outKiller = const_cast<Cycle*>(&enemy);
-					return true;
-				}
-			}
+		if (hitsTrail(enemy)) {
+			return true;
 		}
 	}
 
 	return false;
 }
-
 void LightcyclesGame::updateCycles(float elapsedSeconds) {
 	updateCycleRespawn(player_, elapsedSeconds);
 	for (Cycle& enemy : enemies_) {
@@ -507,7 +507,7 @@ void LightcyclesGame::updateCycles(float elapsedSeconds) {
 	}
 
 	// Sub-steps of at most 4 pixels so no segment passes through another
-	const float maxDistance = Cycle::BASE_SPEED * fastest * elapsedSeconds;
+	const float maxDistance = Cycle::MAX_SPEED * fastest * elapsedSeconds;
 	const int steps = std::max(1, static_cast<int>(std::ceil(maxDistance / 4.0f)));
 
 	for (int step = 0; step < steps && result_ == GameResult::Running; ++step) {
@@ -530,20 +530,14 @@ void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, std::size_t ene
 		return;
 	}
 
-	if (brain != nullptr && enemyIndex < enemyDecisionTimers_.size()) {
-		enemyDecisionTimers_[enemyIndex] -= elapsedSeconds;
-
+	if (brain != nullptr && enemyIndex < brains_.size()) {
 		const ArenaView arena = buildArenaView();
-		const Vec2 fwdVec = EnemyBrain::directionVector(cycle.direction());
-		const float fwdClearance = arena.evaluateClearance(cycle.center(), fwdVec, 200.0f, &cycle);
-
-		// If path ahead is in immediate danger (< 36px), override cooldown immediately to avoid crashing!
-		// Otherwise only evaluate a new direction when cooldown expires (approx every 180ms ~ 240ms).
-		if (fwdClearance < 36.0f || enemyDecisionTimers_[enemyIndex] <= 0.0f) {
-			Direction newDir = brain->decide(cycle, player_, arena, elapsedSeconds);
-			cycle.setDirection(newDir);
-			enemyDecisionTimers_[enemyIndex] = 0.18f + (getRandomNumber(7) * 0.01f);
-		}
+		brain->drive(cycle, player_, arena, elapsedSeconds);
+	}
+	else if (&cycle == &player_) {
+		const float steering = static_cast<float>(steeringRight_) - static_cast<float>(steeringLeft_);
+		const float throttle = static_cast<float>(accelerating_) - static_cast<float>(braking_);
+		cycle.steer(steering, throttle, elapsedSeconds);
 	}
 
 	const Vec2 before = cycle.center();
@@ -602,9 +596,12 @@ bool LightcyclesGame::findSafeRespawn(SDL_Point& outCell, Direction& outDir) {
 			static_cast<float>(candidate.y * CELL_SIZE + CELL_SIZE / 2)
 		};
 
+		// The facing is not known yet, so keep a margin of three cells around the spawn point clear of walls
+		const float margin = static_cast<float>(CELL_SIZE * 3);
+		const RectF spawnArea = { candPos.x - margin, candPos.y - margin, margin * 2.0f, margin * 2.0f };
 		bool insideWall = false;
 		for (const RectF& wall : arena.walls) {
-			if (wall.contains(candPos)) {
+			if (wall.intersects(spawnArea)) {
 				insideWall = true;
 				break;
 			}
@@ -633,6 +630,12 @@ void LightcyclesGame::respawnCycle(Cycle& cycle) {
 	Direction dir;
 	findSafeRespawn(cell, dir);
 	cycle.respawn(cell, dir);
+	for (std::size_t i = 0; i < enemies_.size(); ++i) {
+		if (&cycle == &enemies_[i]) {
+			brains_[i]->resetDriving();
+			break;
+		}
+	}
 	if (&cycle == &player_) {
 		renderContext_.camera.x = std::clamp(static_cast<int>(player_.x) - WINDOW_WIDTH / 2,
 			0, level_.width * CELL_SIZE - WINDOW_WIDTH);
@@ -654,7 +657,7 @@ void LightcyclesGame::crashCollidingHeads() {
 
 	for (std::size_t first = 0; first < alive.size(); ++first) {
 		for (std::size_t second = first + 1; second < alive.size(); ++second) {
-			if (geom::distance(alive[first]->center(), alive[second]->center()) < 16.0f) {
+			if (alive[first]->overlaps(*alive[second])) {
 				handleCycleCrash(*alive[first]);
 				handleCycleCrash(*alive[second]);
 			}
@@ -731,6 +734,7 @@ void LightcyclesGame::reset() {
 	player_.reset(spawns[0].cell, spawns[0].direction);
 	for (std::size_t index = 0; index < enemies_.size(); ++index) {
 		enemies_[index].reset(spawns[index + 1].cell, spawns[index + 1].direction);
+		brains_[index]->resetDriving();
 	}
 
 	std::vector<std::uint8_t> dummyOccupied(level_.width * level_.height, 0);

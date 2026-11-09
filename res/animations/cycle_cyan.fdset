@@ -7,31 +7,36 @@ clip: 0 0 128 128
 offset: 63 63
 duration: 0.1
 index: 0
-collisionBox1: 0 0 128 128
+collisionBox1: 59 22 10 92
+collisionBox2: 51 87 26 27
 frame
 clip: 128 0 128 128
 offset: 63 63
 duration: 0.1
 index: 1
-collisionBox1: 0 0 128 128
+collisionBox1: 59 22 10 92
+collisionBox2: 51 87 26 27
 frame
 clip: 256 0 128 128
 offset: 63 63
 duration: 0.1
 index: 2
-collisionBox1: 0 0 128 128
+collisionBox1: 59 22 10 92
+collisionBox2: 51 87 26 27
 frame
 clip: 384 0 128 128
 offset: 63 63
 duration: 0.1
 index: 3
-collisionBox1: 0 0 128 128
+collisionBox1: 59 22 10 92
+collisionBox2: 51 87 26 27
 frame
 clip: 512 0 128 128
 offset: 63 63
 duration: 0.1
 index: 4
-collisionBox1: 0 0 128 128
+collisionBox1: 59 22 10 92
+collisionBox2: 51 87 26 27
 right
 frames: 5
 frame
@@ -39,31 +44,36 @@ clip: 0 128 128 128
 offset: 63 63
 duration: 0.1
 index: 0
-collisionBox1: 0 0 128 128
+collisionBox1: 20 59 93 19
+collisionBox2: 87 54 29 33
 frame
 clip: 128 128 128 128
 offset: 63 63
 duration: 0.1
 index: 1
-collisionBox1: 0 0 128 128
+collisionBox1: 20 59 93 19
+collisionBox2: 87 54 29 33
 frame
 clip: 256 128 128 128
 offset: 63 63
 duration: 0.1
 index: 2
-collisionBox1: 0 0 128 128
+collisionBox1: 20 59 93 19
+collisionBox2: 87 54 29 33
 frame
 clip: 384 128 128 128
 offset: 63 63
 duration: 0.1
 index: 3
-collisionBox1: 0 0 128 128
+collisionBox1: 20 59 93 19
+collisionBox2: 87 54 29 33
 frame
 clip: 512 128 128 128
 offset: 63 63
 duration: 0.1
 index: 4
-collisionBox1: 0 0 128 128
+collisionBox1: 20 59 93 19
+collisionBox2: 87 54 29 33
 up
 frames: 5
 frame
@@ -71,31 +81,36 @@ clip: 0 256 128 128
 offset: 63 63
 duration: 0.1
 index: 0
-collisionBox1: 0 0 128 128
+collisionBox1: 59 18 10 94
+collisionBox2: 50 23 28 19
 frame
 clip: 128 256 128 128
 offset: 63 63
 duration: 0.1
 index: 1
-collisionBox1: 0 0 128 128
+collisionBox1: 59 18 10 94
+collisionBox2: 50 23 28 19
 frame
 clip: 256 256 128 128
 offset: 63 63
 duration: 0.1
 index: 2
-collisionBox1: 0 0 128 128
+collisionBox1: 59 18 10 94
+collisionBox2: 50 23 28 19
 frame
 clip: 384 256 128 128
 offset: 63 63
 duration: 0.1
 index: 3
-collisionBox1: 0 0 128 128
+collisionBox1: 59 18 10 94
+collisionBox2: 50 23 28 19
 frame
 clip: 512 256 128 128
 offset: 63 63
 duration: 0.1
 index: 4
-collisionBox1: 0 0 128 128
+collisionBox1: 59 18 10 94
+collisionBox2: 50 23 28 19
 left
 frames: 5
 frame
@@ -103,28 +118,33 @@ clip: 0 384 128 128
 offset: 63 63
 duration: 0.1
 index: 0
-collisionBox1: 0 0 128 128
+collisionBox1: 14 58 94 14
+collisionBox2: 15 55 27 29
 frame
 clip: 128 384 128 128
 offset: 63 63
 duration: 0.1
 index: 1
-collisionBox1: 0 0 128 128
+collisionBox1: 14 58 94 14
+collisionBox2: 15 55 27 29
 frame
 clip: 256 384 128 128
 offset: 63 63
 duration: 0.1
 index: 2
-collisionBox1: 0 0 128 128
+collisionBox1: 14 58 94 14
+collisionBox2: 15 55 27 29
 frame
 clip: 384 384 128 128
 offset: 63 63
 duration: 0.1
 index: 3
-collisionBox1: 0 0 128 128
+collisionBox1: 14 58 94 14
+collisionBox2: 15 55 27 29
 frame
 clip: 512 384 128 128
 offset: 63 63
 duration: 0.1
 index: 4
-collisionBox1: 0 0 128 128
+collisionBox1: 14 58 94 14
+collisionBox2: 15 55 27 29

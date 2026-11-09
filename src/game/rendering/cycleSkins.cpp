@@ -1,5 +1,7 @@
 #include "rendering/cycleSkins.h"
 
+#include "cycle.h"
+
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -53,6 +55,12 @@ AnimationSet* CycleSkins::load(const std::string& name) {
 		return nullptr;
 	}
 	std::list<DataGroupType> dataGroupTypes;
+	for (const char* groupName : Cycle::COLLISION_BOX_GROUPS) {
+		DataGroupType collisionBoxType;
+		collisionBoxType.groupName = groupName;
+		collisionBoxType.dataType = DataGroupType::DATATYPE_BOX;
+		dataGroupTypes.push_back(collisionBoxType);
+	}
 	auto animSet = std::make_unique<AnimationSet>();
 	animSet->loadAnimationSet(file, dataGroupTypes, renderer_);
 	AnimationSet* raw = animSet.get();

@@ -4,8 +4,6 @@
 #include "cameraController.h"
 #include "ai/enemyPersonality.h"
 #include "cycle.h"
-#include "inputCommand.h"
-#include "keyboardInput.h"
 #include "level/levelDefinition.h"
 #include "menu/gameConfig.h"
 #include "network/onlineMatchState.h"
@@ -56,6 +54,7 @@ public:
 	bool isInMenu() const { return inMenu_; }
 
 private:
+	friend struct LightcyclesGameInputTest;
 	static constexpr int CELL_SIZE = 8;
 	static constexpr int MIN_GRID_WIDTH = (WINDOW_WIDTH + CELL_SIZE - 1) / CELL_SIZE;
 	static constexpr int MIN_GRID_HEIGHT = (VIEWPORT_HEIGHT + CELL_SIZE - 1) / CELL_SIZE;
@@ -86,14 +85,12 @@ private:
 	SDL_Texture* worldTexture_ = nullptr; // world drawn at camera size, then scaled to the game area
 	std::string resPath_;
 	RenderContext renderContext_;
-	KeyboardInput keyboard_;
 	CameraController cameraController_;
 	CycleSkins cycleSkins_;
 	HudUi hudUi_;
 	Cycle player_;
 	std::vector<Cycle> enemies_;
 	std::vector<std::unique_ptr<EnemyBrain>> brains_;
-	std::vector<float> enemyDecisionTimers_;
 	OnlineMatchState onlineMatch_;
 	ArenaObjects objects_;
 	TileMapRenderer tileMap_;
@@ -105,5 +102,9 @@ private:
 	bool running_ = true;
 	bool inMenu_ = true;
 	bool exitRequested_ = false;
+	bool accelerating_ = false;
+	bool braking_ = false;
+	bool steeringLeft_ = false;
+	bool steeringRight_ = false;
 	GameConfig activeConfig_;
 };

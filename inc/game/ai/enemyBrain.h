@@ -13,6 +13,8 @@ public:
 
 	// Goes for a power-up when the personality wants it enough, otherwise acts on its own style.
 	Direction decide(const Cycle& self, const Cycle& player, const ArenaView& arena, float elapsedSeconds);
+	void drive(Cycle& self, const Cycle& player, const ArenaView& arena, float elapsedSeconds);
+	void resetDriving();
 
 	static Vec2 directionVector(Direction dir);
 	static Direction turnLeft(Direction dir);
@@ -44,4 +46,8 @@ protected:
 
 	float pursuitTimer_ = 0.0f;
 	Vec2 lastPursuitTarget_{};
+	float drivingDecisionTimer_ = 0.0f;
+	float targetHeading_ = 0.0f;
+	float lastDecisionElapsed_ = 0.0f;
+	bool hasDrivingTarget_ = false;
 };

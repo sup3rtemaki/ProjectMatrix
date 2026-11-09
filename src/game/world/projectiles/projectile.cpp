@@ -128,9 +128,9 @@ void Projectile::updateAnimation() {
 	applyCollisionBoxFromCurrentFrame();
 }
 
-// A cycle is hit when its head is inside the projectile's collision box.
+// A cycle is hit when its collisionBox overlaps the projectile's.
 bool Projectile::hits(const Cycle& cycle) const {
-	const SDL_Point head = { static_cast<int>(std::lround(cycle.center().x)),
-		static_cast<int>(std::lround(cycle.center().y)) };
-	return SDL_PointInRect(&head, &collisionBox) == SDL_TRUE;
+	const RectF mine = { static_cast<float>(collisionBox.x), static_cast<float>(collisionBox.y),
+		static_cast<float>(collisionBox.w), static_cast<float>(collisionBox.h) };
+	return cycle.overlaps(mine);
 }

@@ -1,0 +1,64 @@
+projectile_tri.png
+animations: 1
+idle
+frames: 10
+frame
+clip: 0 0 32 32
+offset: 15 15
+duration: 0.1
+index: 0
+collisionBox1: 0 0 32 32
+frame
+clip: 32 0 32 32
+offset: 15 15
+duration: 0.1
+index: 1
+collisionBox1: 0 0 32 32
+frame
+clip: 64 0 32 32
+offset: 15 15
+duration: 0.1
+index: 2
+collisionBox1: 0 0 32 32
+frame
+clip: 96 0 32 32
+offset: 15 15
+duration: 0.1
+index: 3
+collisionBox1: 0 0 32 32
+frame
+clip: 0 32 32 32
+offset: 15 15
+duration: 0.1
+index: 4
+collisionBox1: 0 0 32 32
+frame
+clip: 32 32 32 32
+offset: 15 15
+duration: 0.1
+index: 5
+collisionBox1: 0 0 32 32
+frame
+clip: 64 32 32 32
+offset: 15 15
+duration: 0.1
+index: 6
+collisionBox1: 0 0 32 32
+frame
+clip: 96 32 32 32
+offset: 15 15
+duration: 0.1
+index: 7
+collisionBox1: 0 0 32 32
+frame
+clip: 0 64 32 32
+offset: 15 15
+duration: 0.1
+index: 8
+collisionBox1: 0 0 32 32
+frame
+clip: 32 64 32 32
+offset: 15 15
+duration: 0.1
+index: 9
+collisionBox1: 0 0 32 32

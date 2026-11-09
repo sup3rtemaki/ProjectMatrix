@@ -110,4 +110,66 @@ bool segmentIntersectAABB(Vec2 a, Vec2 b, const RectF& box) {
 		|| intersectSegments(a, b, p4, p1);
 }
 
+OrientedBox orientedBox(const RectF& local, Vec2 origin, float radians) {
+	const float c = std::cos(radians);
+	const float s = std::sin(radians);
+	const Vec2 axisX = { c, s };
+	const Vec2 axisY = { -s, c };
+	return { origin + axisX * (local.x + local.w * 0.5f) + axisY * (local.y + local.h * 0.5f),
+		axisX, axisY, local.w * 0.5f, local.h * 0.5f };
+}
+
+static float dot(Vec2 a, Vec2 b) {
+	return a.x * b.x + a.y * b.y;
+}
+
+static float projectionRadius(const OrientedBox& box, Vec2 axis) {
+	return box.halfWidth * std::abs(dot(box.axisX, axis)) + box.halfHeight * std::abs(dot(box.axisY, axis));
+}
+
+static bool sweepAxis(float center, float radius, float velocity, float otherMin, float otherMax,
+	float& first, float& last) {
+	if (std::abs(velocity) < 1e-6f) {
+		return center + radius >= otherMin && center - radius <= otherMax;
+	}
+	float enter = (otherMin - center - radius) / velocity;
+	float exit = (otherMax - center + radius) / velocity;
+	if (enter > exit) std::swap(enter, exit);
+	first = std::max(first, enter);
+	last = std::min(last, exit);
+	return first <= last;
+}
+
+bool sweptBoxIntersectsBox(const OrientedBox& moving, Vec2 displacement, const OrientedBox& other) {
+	const Vec2 axes[] = { moving.axisX, moving.axisY, other.axisX, other.axisY };
+	float first = 0.0f, last = 1.0f;
+	for (Vec2 axis : axes) {
+		const float middle = dot(other.center, axis);
+		const float radius = projectionRadius(other, axis);
+		if (!sweepAxis(dot(moving.center, axis), projectionRadius(moving, axis), dot(displacement, axis),
+			middle - radius, middle + radius, first, last)) return false;
+	}
+	return true;
+}
+
+bool sweptBoxIntersectsSegment(const OrientedBox& moving, Vec2 displacement, Vec2 a, Vec2 b) {
+	const Vec2 edge = b - a;
+	const Vec2 axes[] = { moving.axisX, moving.axisY, { -edge.y, edge.x } };
+	float first = 0.0f, last = 1.0f;
+	for (Vec2 axis : axes) {
+		if (axis.lengthSq() < 1e-10f) continue;
+		const float pa = dot(a, axis), pb = dot(b, axis);
+		if (!sweepAxis(dot(moving.center, axis), projectionRadius(moving, axis), dot(displacement, axis),
+			std::min(pa, pb), std::max(pa, pb), first, last)) return false;
+	}
+	return true;
+}
+
+bool boxInsideRect(const OrientedBox& box, const RectF& rect) {
+	const float rx = projectionRadius(box, { 1.0f, 0.0f });
+	const float ry = projectionRadius(box, { 0.0f, 1.0f });
+	return box.center.x - rx >= rect.x && box.center.x + rx <= rect.x + rect.w
+		&& box.center.y - ry >= rect.y && box.center.y + ry <= rect.y + rect.h;
+}
+
 } // namespace geom

@@ -41,6 +41,24 @@ struct RectF {
 	bool contains(Vec2 p) const {
 		return p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h;
 	}
+
+	bool intersects(const RectF& o) const {
+		return x < o.x + o.w && o.x < x + w && y < o.y + o.h && o.y < y + h;
+	}
+
+	RectF united(const RectF& o) const {
+		const float left = std::min(x, o.x);
+		const float top = std::min(y, o.y);
+		return { left, top, std::max(x + w, o.x + o.w) - left, std::max(y + h, o.y + o.h) - top };
+	}
+};
+
+struct OrientedBox {
+	Vec2 center;
+	Vec2 axisX;
+	Vec2 axisY;
+	float halfWidth;
+	float halfHeight;
 };
 
 namespace geom {
@@ -68,5 +86,10 @@ bool rayIntersectAABB(Vec2 origin, Vec2 dir, float maxDist, const RectF& box, fl
 
 // Tests if line segment (a->b) intersects axis-aligned box.
 bool segmentIntersectAABB(Vec2 a, Vec2 b, const RectF& box);
+
+OrientedBox orientedBox(const RectF& local, Vec2 origin, float radians);
+bool sweptBoxIntersectsBox(const OrientedBox& moving, Vec2 displacement, const OrientedBox& other);
+bool sweptBoxIntersectsSegment(const OrientedBox& moving, Vec2 displacement, Vec2 a, Vec2 b);
+bool boxInsideRect(const OrientedBox& box, const RectF& rect);
 
 } // namespace geom

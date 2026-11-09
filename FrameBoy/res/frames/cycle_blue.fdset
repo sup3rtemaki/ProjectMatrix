@@ -1,13 +1,14 @@
 cycle_blue.png
 animations: 4
 down
-frames: 10
+frames: 5
 frame
 clip: 0 0 128 128
 offset: 63 63
 duration: 0.1
 index: 0
-collisionBox1: 0 0 128 128
+collisionBox1: 59 22 10 92
+collisionBox2: 51 87 26 27
 frame
 clip: 128 0 128 128
 offset: 63 63
@@ -32,44 +33,15 @@ offset: 63 63
 duration: 0.1
 index: 4
 collisionBox1: 0 0 128 128
-frame
-clip: 640 0 128 128
-offset: 63 63
-duration: 0.1
-index: 5
-collisionBox1: 0 0 128 128
-frame
-clip: 768 0 128 128
-offset: 63 63
-duration: 0.1
-index: 6
-collisionBox1: 0 0 128 128
-frame
-clip: 896 0 128 128
-offset: 63 63
-duration: 0.1
-index: 7
-collisionBox1: 0 0 128 128
-frame
-clip: 1024 0 128 128
-offset: 63 63
-duration: 0.1
-index: 8
-collisionBox1: 0 0 128 128
-frame
-clip: 1152 0 128 128
-offset: 63 63
-duration: 0.1
-index: 9
-collisionBox1: 0 0 128 128
 right
-frames: 10
+frames: 5
 frame
 clip: 0 128 128 128
 offset: 63 63
 duration: 0.1
 index: 0
-collisionBox1: 0 0 128 128
+collisionBox1: 20 59 93 19
+collisionBox2: 87 54 29 33
 frame
 clip: 128 128 128 128
 offset: 63 63
@@ -94,44 +66,15 @@ offset: 63 63
 duration: 0.1
 index: 4
 collisionBox1: 0 0 128 128
-frame
-clip: 640 128 128 128
-offset: 63 63
-duration: 0.1
-index: 5
-collisionBox1: 0 0 128 128
-frame
-clip: 768 128 128 128
-offset: 63 63
-duration: 0.1
-index: 6
-collisionBox1: 0 0 128 128
-frame
-clip: 896 128 128 128
-offset: 63 63
-duration: 0.1
-index: 7
-collisionBox1: 0 0 128 128
-frame
-clip: 1024 128 128 128
-offset: 63 63
-duration: 0.1
-index: 8
-collisionBox1: 0 0 128 128
-frame
-clip: 1152 128 128 128
-offset: 63 63
-duration: 0.1
-index: 9
-collisionBox1: 0 0 128 128
 up
-frames: 10
+frames: 5
 frame
 clip: 0 256 128 128
 offset: 63 63
 duration: 0.1
 index: 0
-collisionBox1: 0 0 128 128
+collisionBox1: 59 18 10 94
+collisionBox2: 50 23 28 19
 frame
 clip: 128 256 128 128
 offset: 63 63
@@ -156,44 +99,15 @@ offset: 63 63
 duration: 0.1
 index: 4
 collisionBox1: 0 0 128 128
-frame
-clip: 640 256 128 128
-offset: 63 63
-duration: 0.1
-index: 5
-collisionBox1: 0 0 128 128
-frame
-clip: 768 256 128 128
-offset: 63 63
-duration: 0.1
-index: 6
-collisionBox1: 0 0 128 128
-frame
-clip: 896 256 128 128
-offset: 63 63
-duration: 0.1
-index: 7
-collisionBox1: 0 0 128 128
-frame
-clip: 1024 256 128 128
-offset: 63 63
-duration: 0.1
-index: 8
-collisionBox1: 0 0 128 128
-frame
-clip: 1152 256 128 128
-offset: 63 63
-duration: 0.1
-index: 9
-collisionBox1: 0 0 128 128
 left
-frames: 10
+frames: 5
 frame
 clip: 0 384 128 128
 offset: 63 63
 duration: 0.1
 index: 0
-collisionBox1: 0 0 128 128
+collisionBox1: 14 58 94 14
+collisionBox2: 15 55 27 29
 frame
 clip: 128 384 128 128
 offset: 63 63
@@ -217,34 +131,4 @@ clip: 512 384 128 128
 offset: 63 63
 duration: 0.1
 index: 4
-collisionBox1: 0 0 128 128
-frame
-clip: 640 384 128 128
-offset: 63 63
-duration: 0.1
-index: 5
-collisionBox1: 0 0 128 128
-frame
-clip: 768 384 128 128
-offset: 63 63
-duration: 0.1
-index: 6
-collisionBox1: 0 0 128 128
-frame
-clip: 896 384 128 128
-offset: 63 63
-duration: 0.1
-index: 7
-collisionBox1: 0 0 128 128
-frame
-clip: 1024 384 128 128
-offset: 63 63
-duration: 0.1
-index: 8
-collisionBox1: 0 0 128 128
-frame
-clip: 1152 384 128 128
-offset: 63 63
-duration: 0.1
-index: 9
 collisionBox1: 0 0 128 128

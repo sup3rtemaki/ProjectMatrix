@@ -12,7 +12,7 @@ protected:
 			return towards(self, arena, here);
 		}
 
-		const Vec2 ahead = directionVector(player.direction()) * LEAD_DISTANCE;
+		const Vec2 ahead = player.headingVector() * LEAD_DISTANCE;
 		const Vec2 target = {
 			std::clamp(here.x + ahead.x, 16.0f, arena.worldWidth - 16.0f),
 			std::clamp(here.y + ahead.y, 16.0f, arena.worldHeight - 16.0f)
