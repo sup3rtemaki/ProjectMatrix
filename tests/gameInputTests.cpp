@@ -162,6 +162,42 @@ struct LightcyclesGameInputTest {
 		assert(std::abs(std::remainder(enemy.headingDegrees(), 360.0f)) > 10.0f);
 	}
 
+	static void runSpectator(SDL_Renderer* renderer) {
+		LightcyclesGame game(renderer);
+		game.level_.width = 200;
+		game.level_.height = 200;
+		game.objects_.reset(game.level_, {}, {});
+		game.player_.reset({ 20, 20 }, Direction::East);
+		game.player_.setLives(0);
+		game.onlineMatch_.enabled = false;
+		for (int i = 0; i < 3; ++i) {
+			game.enemies_.emplace_back(SDL_Color{ 0, 0, 0, 255 }, SDL_Color{ 255, 0, 0, 255 }, nullptr, 8);
+			game.enemies_.back().reset({ 40 + i * 30, 60 }, Direction::East);
+			game.brains_.push_back(createEnemyBrain(EnemyPersonality::Aggressor));
+		}
+
+		game.updateResult();
+		assert(game.result_ == GameResult::Running);
+		game.updateSpectatorCamera();
+		assert(game.isSpectating_);
+		assert((game.spectatorTarget_ == LightcyclesGame::CycleNameKey{ SnapshotCycleKind::Bot, 1 }));
+		const int firstCameraX = game.renderContext_.camera.x;
+
+		game.enemies_[0].setLives(0);
+		game.updateResult();
+		assert(game.result_ == GameResult::Running);
+		game.updateSpectatorCamera();
+		assert((game.spectatorTarget_ == LightcyclesGame::CycleNameKey{ SnapshotCycleKind::Bot, 2 }));
+		assert(game.renderContext_.camera.x != firstCameraX);
+
+		game.enemies_[1].setLives(0);
+		game.updateResult();
+		assert(game.result_ == GameResult::PlayerLost);
+		game.updateSpectatorCamera();
+		assert(game.isSpectating_);
+		assert((game.spectatorTarget_ == LightcyclesGame::CycleNameKey{ SnapshotCycleKind::Bot, 3 }));
+	}
+
 	static void runRemote(SDL_Renderer* renderer, int enemyCount) {
 		LightcyclesGame game(renderer);
 		game.level_.width = 200;
@@ -401,6 +437,10 @@ struct LightcyclesGameInputTest {
 		config.aiCount = 5;
 		assert(host.startMatch(config));
 		assert(client.startMatch(config));
+		assert(host.cycleDisplayName(SnapshotCycleKind::Human, 0) == "Player");
+		for (std::uint64_t id = 1; id <= 5; ++id) {
+			assert(host.cycleDisplayName(SnapshotCycleKind::Bot, id) == "CPU" + std::to_string(id));
+		}
 		const auto& color = PLAYER_COLOR_OPTIONS[1];
 		LightcyclesGame::RemoteCycle remote;
 		remote.cycle = std::make_unique<Cycle>(color.glow, color.core, host.cycleSkins_.forColor(color.core), 8);
@@ -460,6 +500,7 @@ int main() {
 	SDL_Renderer* renderer = SDL_CreateSoftwareRenderer(surface);
 	assert(renderer != nullptr);
 	LightcyclesGameInputTest::run(renderer);
+	LightcyclesGameInputTest::runSpectator(renderer);
 	LightcyclesGameInputTest::runWallIndex();
 	LightcyclesGameInputTest::runRemote(renderer, 0);
 	LightcyclesGameInputTest::runRemote(renderer, 2);

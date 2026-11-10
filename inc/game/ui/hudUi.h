@@ -26,6 +26,8 @@ struct HudState {
 	bool hasSlow = false;
 	bool online = false;
 	bool waiting = false;
+	bool spectating = false;
+	std::string spectatorTarget;
 };
 
 class HudUi : public Ui {

@@ -176,6 +176,23 @@ void HudUi::draw() {
 		SDL_RenderDrawRect(renderer_, &bg);
 		labelStatusBanner_.draw(renderer_, bx, by);
 	}
+	else if (state_.spectating && state_.status == HudGameStatus::Running) {
+		labelStatusBanner_.update("SPECTATING", font, { 255, 235, 50, 255 }, 24, renderer_);
+		labelStatusSub_.update(state_.spectatorTarget.empty() ? "FOLLOWING A CYCLE"
+			: "FOLLOWING: " + state_.spectatorTarget, font, { 230, 240, 255, 255 }, 18, renderer_);
+		const int boxW = std::max(labelStatusBanner_.width, labelStatusSub_.width) + 32;
+		const int bx = (960 - boxW) / 2;
+		const int by = 55;
+		SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(renderer_, 10, 15, 25, 200);
+		const SDL_Rect bg{ bx, by, boxW, labelStatusBanner_.height + labelStatusSub_.height + 14 };
+		SDL_RenderFillRect(renderer_, &bg);
+		SDL_SetRenderDrawColor(renderer_, 255, 235, 50, SDL_ALPHA_OPAQUE);
+		SDL_RenderDrawRect(renderer_, &bg);
+		labelStatusBanner_.draw(renderer_, (960 - labelStatusBanner_.width) / 2, by + 3);
+		labelStatusSub_.draw(renderer_, (960 - labelStatusSub_.width) / 2,
+			by + labelStatusBanner_.height + 5);
+	}
 	else if (state_.isRespawning && state_.status == HudGameStatus::Running) {
 		labelStatusBanner_.update("RESPAWNING...", font, { 255, 235, 50, 255 }, 24, renderer_);
 		const int bx = (960 - labelStatusBanner_.width) / 2;

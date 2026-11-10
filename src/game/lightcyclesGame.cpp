@@ -2,6 +2,7 @@
 
 #include "level/levelLoader.h"
 #include "level/spawnPlanner.h"
+#include "drawing_functions.h"
 #include "network/steamSession.h"
 #include "randomNumber.h"
 #include "res_path.h"
@@ -10,6 +11,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <set>
 
 namespace {
 constexpr SDL_Color PLAYER_GLOW = { 0, 90, 135, 255 };
@@ -37,6 +39,10 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* st
 	hudUi_.setRenderer(renderer_);
 	hudUi_.setResourcePath(resPath_);
 	objects_.setRenderer(renderer_);
+	cycleNameFontPath_ = resPath_ + "fonts/vermin_vibes_1989.ttf";
+	if (!std::ifstream(cycleNameFontPath_).good()) {
+		cycleNameFontPath_ = resPath_ + "fonts/Berylium.ttf";
+	}
 
 	levelCount_ = countLevels();
 	inMenu_ = true;
@@ -44,9 +50,127 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* st
 }
 
 LightcyclesGame::~LightcyclesGame() {
+	clearCycleNameTags();
 	if (worldTexture_ != nullptr) {
 		SDL_DestroyTexture(worldTexture_);
 	}
+}
+
+void LightcyclesGame::clearCycleNameTags() {
+	for (const auto& entry : cycleNameTags_) {
+		if (entry.second.texture != nullptr) SDL_DestroyTexture(entry.second.texture);
+	}
+	cycleNameTags_.clear();
+}
+
+std::string LightcyclesGame::cycleDisplayName(SnapshotCycleKind kind, std::uint64_t id) const {
+	if (kind == SnapshotCycleKind::Bot) {
+		return "CPU" + std::to_string(id);
+	}
+	if (onlineMatch_.enabled && steamSession_ != nullptr) {
+		const std::string steamId = std::to_string(id);
+		for (const SteamPeerInfo& peer : steamSession_->peers()) {
+			if (peer.steamId == steamId && !peer.displayName.empty() && peer.displayName != "You") {
+				return peer.displayName;
+			}
+		}
+	}
+	return "Player";
+}
+
+Cycle* LightcyclesGame::findSpectatorCycle(const CycleNameKey& key) {
+	if (onlineMatch_.enabled && !onlineMatch_.host) {
+		if (key.first == SnapshotCycleKind::Human && key.second == visualLocalId_) return nullptr;
+		const auto found = visualCycles_.find(key);
+		return found == visualCycles_.end() ? nullptr : found->second.get();
+	}
+	if (key.first == SnapshotCycleKind::Human) {
+		const auto found = remoteCycles_.find(key.second);
+		return found != remoteCycles_.end() && found->second.connected ? found->second.cycle.get() : nullptr;
+	}
+	if (key.second == 0 || key.second > enemies_.size()) return nullptr;
+	return &enemies_[static_cast<std::size_t>(key.second - 1)];
+}
+
+void LightcyclesGame::updateSpectatorCamera() {
+	if (!player_.isEliminated()) {
+		isSpectating_ = false;
+		spectatorTarget_.reset();
+		return;
+	}
+
+	isSpectating_ = true;
+	Cycle* target = spectatorTarget_ ? findSpectatorCycle(*spectatorTarget_) : nullptr;
+	if (target == nullptr || target->isEliminated()) {
+		spectatorTarget_.reset();
+		if (onlineMatch_.enabled && !onlineMatch_.host) {
+			for (const auto& entry : visualCycles_) {
+				if (entry.first.first == SnapshotCycleKind::Human && entry.first.second == visualLocalId_) continue;
+				if (!entry.second->isEliminated()) {
+					spectatorTarget_ = entry.first;
+					break;
+				}
+			}
+		}
+		else {
+			for (std::size_t i = 0; i < enemies_.size(); ++i) {
+				if (!enemies_[i].isEliminated()) {
+					spectatorTarget_ = CycleNameKey{ SnapshotCycleKind::Bot, i + 1 };
+					break;
+				}
+			}
+			if (!spectatorTarget_) {
+				for (const auto& entry : remoteCycles_) {
+					if (entry.second.connected && !entry.second.cycle->isEliminated()) {
+						spectatorTarget_ = CycleNameKey{ SnapshotCycleKind::Human, entry.first };
+						break;
+					}
+				}
+			}
+		}
+		target = spectatorTarget_ ? findSpectatorCycle(*spectatorTarget_) : nullptr;
+	}
+
+	if (target == nullptr) return;
+	const int worldWidth = level_.width * CELL_SIZE;
+	const int worldHeight = level_.height * CELL_SIZE;
+	renderContext_.camera.x = std::clamp(static_cast<int>(std::lround(target->center().x))
+		- renderContext_.camera.w / 2, 0, std::max(0, worldWidth - renderContext_.camera.w));
+	renderContext_.camera.y = std::clamp(static_cast<int>(std::lround(target->center().y))
+		- renderContext_.camera.h / 2, 0, std::max(0, worldHeight - renderContext_.camera.h));
+}
+
+void LightcyclesGame::drawCycleName(Cycle& cycle, const CycleNameKey& key, const std::string& name,
+	const RenderContext& context) {
+	if (!cycle.alive() || cycle.isRespawning() || name.empty()) return;
+
+	CycleNameTag& tag = cycleNameTags_[key];
+	if (tag.text != name || tag.texture == nullptr) {
+		if (tag.texture != nullptr) SDL_DestroyTexture(tag.texture);
+		tag.text = name;
+		tag.texture = cycleNameFontPath_.empty() ? nullptr
+			: renderText(name, cycleNameFontPath_, { 255, 255, 255, 255 }, 14, renderer_);
+		tag.width = 0;
+		tag.height = 0;
+		if (tag.texture != nullptr) SDL_QueryTexture(tag.texture, nullptr, nullptr, &tag.width, &tag.height);
+	}
+	if (tag.texture == nullptr) return;
+
+	const int x = static_cast<int>(std::lround(cycle.center().x - context.camera.x - tag.width * 0.5f));
+	const int y = static_cast<int>(std::lround(cycle.center().y - 54.0f - context.camera.y - tag.height));
+	const SDL_Rect dest{ x, y, tag.width, tag.height };
+	SDL_SetTextureColorMod(tag.texture, 0, 0, 0);
+	const SDL_Rect outlineOffsets[] = {
+		{ x - 1, y, tag.width, tag.height }, { x + 1, y, tag.width, tag.height },
+		{ x, y - 1, tag.width, tag.height }, { x, y + 1, tag.width, tag.height }
+	};
+	for (const SDL_Rect& outline : outlineOffsets) {
+		SDL_RenderCopy(renderer_, tag.texture, nullptr, &outline);
+	}
+	const SDL_Color color = cycle.coreColor();
+	SDL_SetTextureColorMod(tag.texture, color.r, color.g, color.b);
+	SDL_RenderCopy(renderer_, tag.texture, nullptr, &dest);
+	SDL_SetTextureColorMod(tag.texture, 255, 255, 255);
 }
 
 std::vector<std::string> LightcyclesGame::getAvailableLevelNames() const {
@@ -67,6 +191,7 @@ std::vector<std::string> LightcyclesGame::getAvailableLevelNames() const {
 }
 
 bool LightcyclesGame::startMatch(const GameConfig& config) {
+	clearCycleNameTags();
 	activeConfig_ = config;
 	onlineMatch_.reset();
 	remoteInputs_.clear();
@@ -82,6 +207,8 @@ bool LightcyclesGame::startMatch(const GameConfig& config) {
 	receivedFrameSequence_.reset();
 	visualCycles_.clear();
 	visualMotions_.clear();
+	spectatorTarget_.reset();
+	isSpectating_ = false;
 	visualLocalId_ = 0;
 	visualInterpolationTime_ = 0.0f;
 	receivedFrame_ = false;
@@ -292,8 +419,11 @@ void LightcyclesGame::update(float elapsedSeconds) {
 		updateCycles(std::min(elapsedSeconds, 0.25f));
 	}
 
-	cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
-	cameraController_.update(renderContext_.camera, level_.width * CELL_SIZE, level_.height * CELL_SIZE);
+	updateSpectatorCamera();
+	if (!isSpectating_) {
+		cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
+		cameraController_.update(renderContext_.camera, level_.width * CELL_SIZE, level_.height * CELL_SIZE);
+	}
 }
 
 void LightcyclesGame::updateOnlineInputs(float elapsedSeconds) {
@@ -590,24 +720,48 @@ void LightcyclesGame::render() {
 	objects_.queueDraw(drawContext, depthQueue_);
 
 	// Each trail segment is queued below its cycle, sorted by its own Y.
-	const auto queueCycle = [&](Cycle& cycle) {
+	std::set<CycleNameKey> visibleCycles;
+	const auto queueCycle = [&](Cycle& cycle, SnapshotCycleKind kind, std::uint64_t id) {
+		const CycleNameKey key{ kind, id };
+		const std::string name = cycleDisplayName(kind, id);
+		visibleCycles.insert(key);
 		const float sortY = cycle.center().y;
-		depthQueue_.add(sortY, [&cycle, &drawContext]() { cycle.draw(drawContext); });
+		depthQueue_.add(sortY, [this, &cycle, &drawContext, key, name]() {
+			cycle.draw(drawContext);
+			drawCycleName(cycle, key, name, drawContext);
+		});
 		cycle.trail().queueDraw(depthQueue_, renderer_, renderContext_.camera, offsetY, cycle.glowColor(),
 			cycle.coreColor(), sortY);
 	};
 	if (onlineMatch_.enabled && !onlineMatch_.host) {
-		for (auto& remote : visualCycles_) queueCycle(*remote.second);
-		if (receivedFrame_) queueCycle(player_);
+		for (auto& remote : visualCycles_) {
+			queueCycle(*remote.second, remote.first.first, remote.first.second);
+		}
+		if (receivedFrame_) queueCycle(player_, SnapshotCycleKind::Human, visualLocalId_);
 	}
 	else {
-		for (Cycle& enemy : enemies_) queueCycle(enemy);
-		for (auto& remote : remoteCycles_) {
-			if (remote.second.connected) queueCycle(*remote.second.cycle);
+		for (std::size_t i = 0; i < enemies_.size(); ++i) {
+			queueCycle(enemies_[i], SnapshotCycleKind::Bot, i + 1);
 		}
-		queueCycle(player_);
+		for (auto& remote : remoteCycles_) {
+			if (remote.second.connected) {
+				queueCycle(*remote.second.cycle, SnapshotCycleKind::Human, remote.first);
+			}
+		}
+		const std::uint64_t playerId = onlineMatch_.enabled && steamSession_ != nullptr
+			? steamSession_->localSteamId() : 0;
+		queueCycle(player_, SnapshotCycleKind::Human, playerId);
 	}
 	depthQueue_.flush();
+	for (auto tag = cycleNameTags_.begin(); tag != cycleNameTags_.end();) {
+		if (visibleCycles.find(tag->first) == visibleCycles.end()) {
+			if (tag->second.texture != nullptr) SDL_DestroyTexture(tag->second.texture);
+			tag = cycleNameTags_.erase(tag);
+		}
+		else {
+			++tag;
+		}
+	}
 
 	objects_.drawProjectiles(drawContext);
 	if (useTexture) {
@@ -643,6 +797,10 @@ void LightcyclesGame::render() {
 	hudState.hasSlow = player_.effects().isActive(EffectType::Slow);
 	hudState.online = onlineMatch_.enabled;
 	hudState.waiting = onlineMatch_.enabled && !matchStarted_;
+	hudState.spectating = isSpectating_ && result_ == GameResult::Running;
+	if (hudState.spectating && spectatorTarget_) {
+		hudState.spectatorTarget = cycleDisplayName(spectatorTarget_->first, spectatorTarget_->second);
+	}
 
 	switch (result_) {
 	case GameResult::PlayerWon: hudState.status = HudGameStatus::PlayerWon; break;
@@ -1018,10 +1176,14 @@ void LightcyclesGame::updateResult() {
 	const bool allEnemiesEliminated = std::all_of(enemies_.begin(), enemies_.end(),
 		[](const Cycle& enemy) { return enemy.isEliminated(); });
 
-	if (playerEliminated && allEnemiesEliminated) {
+	if (playerEliminated && enemies_.empty()) {
+		result_ = GameResult::PlayerLost;
+	}
+	else if (playerEliminated && allEnemiesEliminated) {
 		result_ = GameResult::Draw;
 	}
-	else if (playerEliminated) {
+	else if (playerEliminated && std::count_if(enemies_.begin(), enemies_.end(),
+		[](const Cycle& enemy) { return !enemy.isEliminated(); }) <= 1) {
 		result_ = GameResult::PlayerLost;
 	}
 	else if (allEnemiesEliminated) {
@@ -1051,6 +1213,8 @@ void LightcyclesGame::reset() {
 	renderContext_.camera.y = std::clamp(static_cast<int>(player_.y) - renderContext_.camera.h / 2,
 		0, level_.height * CELL_SIZE - renderContext_.camera.h);
 	result_ = GameResult::Running;
+	isSpectating_ = false;
+	spectatorTarget_.reset();
 }
 
 void LightcyclesGame::setDrawColor(SDL_Color color) const {

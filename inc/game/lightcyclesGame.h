@@ -20,6 +20,7 @@ class SteamSessionService;
 #include <cstdint>
 #include <memory>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -67,6 +68,13 @@ private:
 	std::size_t countLevels() const;
 	bool isPlayable(const LevelDefinition& level) const;
 	bool loadLevel(std::size_t index);
+	using CycleNameKey = std::pair<SnapshotCycleKind, std::uint64_t>;
+	std::string cycleDisplayName(SnapshotCycleKind kind, std::uint64_t id) const;
+	Cycle* findSpectatorCycle(const CycleNameKey& key);
+	void updateSpectatorCamera();
+	void drawCycleName(Cycle& cycle, const CycleNameKey& key, const std::string& name,
+		const RenderContext& context);
+	void clearCycleNameTags();
 
 	ArenaView buildArenaView() const;
 	bool checkCycleCollision(const Cycle& cycle, Vec2 before, Vec2 after, Cycle*& outKiller);
@@ -98,6 +106,14 @@ private:
 	CameraController cameraController_;
 	CycleSkins cycleSkins_;
 	HudUi hudUi_;
+	struct CycleNameTag {
+		std::string text;
+		SDL_Texture* texture = nullptr;
+		int width = 0;
+		int height = 0;
+	};
+	std::string cycleNameFontPath_;
+	std::map<CycleNameKey, CycleNameTag> cycleNameTags_;
 	Cycle player_;
 	std::vector<Cycle> enemies_;
 	std::vector<std::unique_ptr<EnemyBrain>> brains_;
@@ -131,6 +147,8 @@ private:
 	float visualInterpolationTime_ = 0.0f;
 	bool receivedFrame_ = false;
 	bool matchStarted_ = false;
+	bool isSpectating_ = false;
+	std::optional<CycleNameKey> spectatorTarget_;
 	OnlineMatchState onlineMatch_;
 	ArenaObjects objects_;
 	TileMapRenderer tileMap_;
