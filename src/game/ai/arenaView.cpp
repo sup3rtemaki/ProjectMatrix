@@ -28,7 +28,7 @@ RaycastHit ArenaView::raycast(Vec2 origin, Vec2 dir, float maxDist, const Cycle*
 	}
 
 	// 2. Obstacle walls
-	for (const RectF& wall : walls) {
+	const auto testWall = [&](const RectF& wall) {
 		float dist = 0.0f;
 		if (geom::rayIntersectAABB(origin, dir, closest.distance, wall, &dist)) {
 			if (dist > 0.001f && dist < closest.distance) {
@@ -38,6 +38,16 @@ RaycastHit ArenaView::raycast(Vec2 origin, Vec2 dir, float maxDist, const Cycle*
 				closest.hitCycle = nullptr;
 			}
 		}
+	};
+	if (wallIndex != nullptr) {
+		const Vec2 end = origin + dir * closest.distance;
+		constexpr float margin = 0.01f;
+		const RectF area{ std::min(origin.x, end.x) - margin, std::min(origin.y, end.y) - margin,
+			std::abs(end.x - origin.x) + 2.0f * margin, std::abs(end.y - origin.y) + 2.0f * margin };
+		for (const std::size_t index : wallIndex->query(area)) testWall(walls[index]);
+	}
+	else {
+		for (const RectF& wall : walls) testWall(wall);
 	}
 
 	// 3. Mine traps

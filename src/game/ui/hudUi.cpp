@@ -164,7 +164,19 @@ void HudUi::draw() {
 	labelEnemies_.draw(renderer_, 780, 8);
 
 	// Respawning banner
-	if (state_.isRespawning && state_.status == HudGameStatus::Running) {
+	if (state_.waiting && state_.status == HudGameStatus::Running) {
+		labelStatusBanner_.update("WAITING FOR PLAYERS...", font, { 255, 235, 50, 255 }, 24, renderer_);
+		const int bx = (960 - labelStatusBanner_.width) / 2;
+		const int by = 260;
+		SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(renderer_, 10, 15, 25, 200);
+		const SDL_Rect bg = { bx - 16, by - 6, labelStatusBanner_.width + 32, labelStatusBanner_.height + 12 };
+		SDL_RenderFillRect(renderer_, &bg);
+		SDL_SetRenderDrawColor(renderer_, 255, 235, 50, SDL_ALPHA_OPAQUE);
+		SDL_RenderDrawRect(renderer_, &bg);
+		labelStatusBanner_.draw(renderer_, bx, by);
+	}
+	else if (state_.isRespawning && state_.status == HudGameStatus::Running) {
 		labelStatusBanner_.update("RESPAWNING...", font, { 255, 235, 50, 255 }, 24, renderer_);
 		const int bx = (960 - labelStatusBanner_.width) / 2;
 		const int by = 260;
@@ -185,17 +197,17 @@ void HudUi::draw() {
 		switch (state_.status) {
 		case HudGameStatus::PlayerWon:
 			mainText = "LEVEL CLEAR!";
-			subText = "PRESS ENTER FOR NEXT LEVEL";
+			subText = state_.online ? "PRESS ENTER TO RETURN TO MENU" : "PRESS ENTER FOR NEXT LEVEL";
 			bannerColor = { 20, 255, 170, 255 };
 			break;
 		case HudGameStatus::PlayerLost:
 			mainText = "GAME OVER";
-			subText = "PRESS ENTER TO RETRY";
+			subText = state_.online ? "PRESS ENTER TO RETURN TO MENU" : "PRESS ENTER TO RETRY";
 			bannerColor = { 255, 45, 75, 255 };
 			break;
 		case HudGameStatus::Draw:
 			mainText = "DRAW!";
-			subText = "PRESS ENTER TO RETRY";
+			subText = state_.online ? "PRESS ENTER TO RETURN TO MENU" : "PRESS ENTER TO RETRY";
 			bannerColor = { 255, 190, 45, 255 };
 			break;
 		default:

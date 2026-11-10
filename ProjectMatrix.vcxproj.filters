@@ -122,6 +122,9 @@
     <ClInclude Include="inc\game\collision\geometry2D.h">
       <Filter>Arquivos de Cabeçalho</Filter>
     </ClInclude>
+    <ClInclude Include="inc\game\collision\wallIndex.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
     <ClInclude Include="inc\game\trail\continuousTrail.h">
       <Filter>Arquivos de Cabeçalho</Filter>
     </ClInclude>

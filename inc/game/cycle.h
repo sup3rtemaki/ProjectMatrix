@@ -3,6 +3,7 @@
 #include "collision/geometry2D.h"
 #include "effects/cycleEffects.h"
 #include "livingEntity.h"
+#include "network/onlineMatchState.h"
 #include "trail/continuousTrail.h"
 
 #include <cstddef>
@@ -85,6 +86,10 @@ public:
 	float baseSpeed() const { return currentSpeed_; }
 
 	CycleEffects& effects() { return effects_; }
+	SnapshotCycle snapshot(SnapshotCycleKind kind, std::uint64_t id) const;
+	// Applies a validated visual snapshot; this replica must not be used for simulation.
+	bool applyVisualSnapshot(const SnapshotCycle& snapshot);
+	void setVisualPose(Vec2 position, float heading);
 	float maxPixelTrailLength() const { return static_cast<float>((MAX_TRAIL_LENGTH + effects_.trailBonus()) * cellSize_); }
 
 private:

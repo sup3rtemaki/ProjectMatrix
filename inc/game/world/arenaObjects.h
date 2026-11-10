@@ -1,6 +1,7 @@
 #pragma once
 
 #include "level/levelDefinition.h"
+#include "collision/wallIndex.h"
 #include "rendering/depthQueue.h"
 #include "world/pickupSighting.h"
 #include "world/worldObject.h"
@@ -33,12 +34,17 @@ public:
 	// True if the pixel box leaves the arena or overlaps an object that blocks projectiles.
 	bool blocksProjectiles(const SDL_Rect& box) const;
 
-	std::vector<RectF> getWallBoxes() const;
+	const std::vector<RectF>& getWallBoxes() const { return walls_.boxes(); }
+	const WallIndex& wallIndex() const { return walls_; }
 	std::vector<Vec2> getMinePositions() const;
+	WorldSnapshot snapshot(std::uint32_t sequence) const;
+	// Applies visual state only; the authoritative host continues to simulate the arena.
+	bool applySnapshot(const WorldSnapshot& snapshot);
 
 private:
 	struct Entry {
 		ObjectType type;
+		SDL_Rect placement;
 		std::unique_ptr<WorldObject> object;
 	};
 	struct PendingRespawn {
@@ -61,6 +67,8 @@ private:
 	float respawnSeconds_ = 0;
 	SDL_Renderer* renderer_ = nullptr;
 	std::vector<Entry> entries_;
+	// Walls are rebuilt on reset and are neither consumed nor replaced by snapshots.
+	WallIndex walls_;
 	std::vector<WorldObject*> cells_;
 	std::vector<std::uint8_t> danger_;
 	std::vector<PickupSighting> pickups_;

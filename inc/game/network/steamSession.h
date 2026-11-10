@@ -5,6 +5,7 @@
 #if __has_include("steam/steam_api.h")
 #include "steam/steam_api.h"
 #include "steam/isteammatchmaking.h"
+#include "steam/isteamnetworkingmessages.h"
 #define PROJECT_HAS_STEAMWORKS 1
 #elif __has_include("steam_api.h")
 #include "steam_api.h"
@@ -15,6 +16,7 @@
 #endif
 
 #include <string>
+#include <optional>
 #include <vector>
 
 enum class SteamSessionState {
@@ -62,6 +64,12 @@ struct SteamNetworkMessage {
 	std::string payload;
 };
 
+struct SteamPeerMessage {
+	std::uint64_t senderId = 0;
+	SteamMessageType type = SteamMessageType::Input;
+	std::string payload;
+};
+
 class SteamSessionService {
 public:
 	SteamSessionService() = default;
@@ -85,6 +93,10 @@ public:
 	const std::vector<std::string>& availableLobbies() const { return availableLobbies_; }
 	bool isHost() const { return role_ == SteamSessionRole::Host; }
 	bool isReady() const { return ready_; }
+	std::uint64_t localSteamId() const;
+	std::uint64_t hostSteamId() const;
+	std::vector<std::uint64_t> lobbyMemberIds() const;
+	bool setLobbyJoinable(bool joinable);
 	void refreshLobbyList();
 	void setLocalReady(bool ready);
 	void setRole(SteamSessionRole role) { role_ = role; }
@@ -95,18 +107,31 @@ public:
 	void queueTransportMessage(const SteamNetworkMessage& message);
 	std::vector<SteamNetworkMessage> drainTransportMessages();
 	std::string serializeInputPacket(const OnlineInputPacket& packet) const;
-	OnlineInputPacket deserializeInputPacket(const std::string& payload) const;
+	std::optional<OnlineInputPacket> deserializeInputPacket(const std::string& payload) const;
 	std::string serializeSnapshot(const OnlineMatchSnapshot& snapshot) const;
-	OnlineMatchSnapshot deserializeSnapshot(const std::string& payload) const;
+	std::optional<OnlineMatchSnapshot> deserializeSnapshot(const std::string& payload) const;
 	std::size_t pendingInputCount() const { return inputQueue_.size(); }
 	std::size_t pendingSnapshotCount() const { return snapshotQueue_.size(); }
 	std::size_t pendingTransportCount() const { return transportQueue_.size(); }
+	bool sendPeerMessage(std::uint64_t peerId, SteamMessageType type, const std::string& payload);
+	bool sendDrivingInput(std::uint64_t hostId, const DrivingInputPacket& input);
+	bool synchronizeDrivingPlayers(HostDrivingInputs& inputs);
+	bool acceptDrivingInput(const SteamPeerMessage& message, HostDrivingInputs& inputs);
+	std::vector<SteamPeerMessage> receivePeerMessages();
 
 private:
 #if PROJECT_HAS_STEAMWORKS
-	STEAM_CALLBACK(SteamSessionService, onLobbyCreated, LobbyCreated_t);
-	STEAM_CALLBACK(SteamSessionService, onLobbyEntered, LobbyEnter_t);
-	STEAM_CALLBACK(SteamSessionService, onLobbyMatchList, LobbyMatchList_t);
+	void onLobbyCreated(LobbyCreated_t* callback, bool ioFailure);
+	void onLobbyEntered(LobbyEnter_t* callback, bool ioFailure);
+	void onLobbyMatchList(LobbyMatchList_t* callback, bool ioFailure);
+	CCallResult<SteamSessionService, LobbyCreated_t> lobbyCreatedResult_;
+	CCallResult<SteamSessionService, LobbyEnter_t> lobbyEnteredResult_;
+	CCallResult<SteamSessionService, LobbyMatchList_t> lobbyListResult_;
+	STEAM_CALLBACK(SteamSessionService, onLobbyMembershipChanged, LobbyChatUpdate_t);
+	STEAM_CALLBACK(SteamSessionService, onPeerSessionRequest, SteamNetworkingMessagesSessionRequest_t);
+	STEAM_CALLBACK(SteamSessionService, onPeerSessionFailed, SteamNetworkingMessagesSessionFailed_t);
+	bool isLobbyMember(std::uint64_t peerId) const;
+	void refreshLobbyMembers();
 #endif
 
 	void resetLocalPeer();
@@ -127,4 +152,7 @@ private:
 	bool ready_ = false;
 	bool initialized_ = false;
 	bool available_ = false;
+	bool steamInitialized_ = false;
+	std::uint32_t lastLobbyListRequest_ = 0;
+	bool lobbyListRequested_ = false;
 };

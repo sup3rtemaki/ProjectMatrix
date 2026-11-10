@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
+#include <limits>
 
 namespace {
 constexpr float PI = 3.14159265358979323846f;
@@ -283,6 +285,89 @@ SDL_Color Cycle::coreColor() const {
 
 bool Cycle::alive() const {
 	return alive_;
+}
+
+SnapshotCycle Cycle::snapshot(SnapshotCycleKind kind, std::uint64_t id) const {
+	SnapshotCycle result;
+	result.kind = kind;
+	result.id = id;
+	result.position = { x, y };
+	result.heading = headingDegrees_;
+	result.speed = currentSpeed_;
+	result.score = static_cast<std::uint32_t>(score_);
+	result.lives = static_cast<std::uint32_t>(lives_);
+	result.alive = alive_;
+	result.respawning = isRespawning();
+	result.boost = effects_.isActive(EffectType::Boost);
+	result.longTrail = effects_.isActive(EffectType::LongTrail);
+	result.slow = effects_.isActive(EffectType::Slow);
+	result.glow = { glowColor_.r, glowColor_.g, glowColor_.b, glowColor_.a };
+	result.core = { coreColor_.r, coreColor_.g, coreColor_.b, coreColor_.a };
+	result.animationFrame = currentFrame == nullptr ? 0 : static_cast<std::uint32_t>(currentFrame->frameNumber);
+	result.trail.reserve(trail_.vertices().size());
+	for (const Vec2 point : trail_.vertices()) result.trail.push_back({ point.x, point.y });
+	return result;
+}
+
+bool Cycle::applyVisualSnapshot(const SnapshotCycle& snapshot) {
+	if (!validateCycleSnapshot({ 0, { snapshot } })) {
+		std::cerr << "[Cycle] Invalid visual snapshot" << std::endl;
+		return false;
+	}
+	const int quadrant = static_cast<int>(std::floor((snapshot.heading + 45.0f) / 90.0f)) % 4;
+	const Direction directions[] = { Direction::East, Direction::South, Direction::West, Direction::North };
+	const Direction newDirection = directions[quadrant];
+	Animation* animation = animSet == nullptr ? nullptr : animSet->getAnimation(animationName(newDirection));
+	if (animSet != nullptr && (animation == nullptr || snapshot.animationFrame >= animation->frames.size())) {
+		std::cerr << "[Cycle] Snapshot animation frame is unavailable" << std::endl;
+		return false;
+	}
+	if (animSet == nullptr && snapshot.animationFrame != 0) {
+		std::cerr << "[Cycle] Snapshot requires a missing animation" << std::endl;
+		return false;
+	}
+	std::vector<Vec2> vertices;
+	vertices.reserve(snapshot.trail.size());
+	for (const SnapshotPoint& point : snapshot.trail) vertices.push_back({ point.x, point.y });
+	x = snapshot.position.x;
+	y = snapshot.position.y;
+	direction_ = newDirection;
+	headingDegrees_ = snapshot.heading;
+	currentSpeed_ = snapshot.speed;
+	lives_ = static_cast<int>(snapshot.lives);
+	score_ = static_cast<int>(snapshot.score);
+	alive_ = snapshot.alive;
+	respawnTimer_ = snapshot.respawning ? 1.0f : 0.0f;
+	glowColor_ = { snapshot.glow[0], snapshot.glow[1], snapshot.glow[2], snapshot.glow[3] };
+	coreColor_ = { snapshot.core[0], snapshot.core[1], snapshot.core[2], snapshot.core[3] };
+	effects_.clear();
+	if (snapshot.boost) effects_.apply(EffectType::Boost, std::numeric_limits<float>::max());
+	if (snapshot.longTrail) effects_.apply(EffectType::LongTrail, std::numeric_limits<float>::max());
+	if (snapshot.slow) effects_.apply(EffectType::Slow, std::numeric_limits<float>::max());
+	trail_.setVertices(vertices);
+	currentAnim = animation;
+	currentFrame = animation == nullptr ? nullptr : animation->getFrame(static_cast<int>(snapshot.animationFrame));
+	frameTimer = 0.0f;
+	refreshBounds();
+	return true;
+}
+
+void Cycle::setVisualPose(Vec2 position, float heading) {
+	x = position.x;
+	y = position.y;
+	headingDegrees_ = std::fmod(heading + 360.0f, 360.0f);
+	const int quadrant = static_cast<int>(std::floor((headingDegrees_ + 45.0f) / 90.0f)) % 4;
+	const Direction directions[] = { Direction::East, Direction::South, Direction::West, Direction::North };
+	if (directions[quadrant] != direction_) {
+		const int frame = currentFrame == nullptr ? 0 : currentFrame->frameNumber;
+		direction_ = directions[quadrant];
+		changeAnimation(state, true);
+		if (currentAnim != nullptr) {
+			currentFrame = currentAnim->getFrame(frame);
+			refreshBounds();
+		}
+	}
+	if (!trail_.vertices().empty()) trail_.updateHead(position);
 }
 
 SDL_Point Cycle::directionOffset(Direction direction) {

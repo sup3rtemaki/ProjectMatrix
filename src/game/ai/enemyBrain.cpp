@@ -46,9 +46,17 @@ float predictClearance(const Cycle& cycle, const ArenaView& arena, const std::ve
 		OrientedBox end = box;
 		end.center = end.center + displacement;
 		if (!geom::boxInsideRect(box, world) || !geom::boxInsideRect(end, world)) return step * stepDistance;
-		for (const RectF& wall : arena.walls) {
-			if (geom::sweptBoxIntersectsBox(box, displacement, geom::orientedBox(wall, { 0, 0 }, 0)))
-				return step * stepDistance;
+		if (arena.wallIndex != nullptr) {
+			for (const std::size_t index : arena.wallIndex->query(sweptBounds(box, displacement))) {
+				if (geom::sweptBoxIntersectsBox(box, displacement, geom::orientedBox(arena.walls[index], { 0, 0 }, 0)))
+					return step * stepDistance;
+			}
+		}
+		else {
+			for (const RectF& wall : arena.walls) {
+				if (geom::sweptBoxIntersectsBox(box, displacement, geom::orientedBox(wall, { 0, 0 }, 0)))
+					return step * stepDistance;
+			}
 		}
 		for (const LineSegment& segment : arena.segments) {
 			if (segment.owner != &cycle && geom::sweptBoxIntersectsSegment(box, displacement, segment.a, segment.b))

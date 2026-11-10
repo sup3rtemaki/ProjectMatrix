@@ -9,6 +9,7 @@
 
 #include <cstdlib>
 #include <ctime>
+#include <optional>
 
 int main(int, char**) {
 	std::srand(static_cast<unsigned int>(std::time(nullptr)));
@@ -63,19 +64,25 @@ int main(int, char**) {
 		MainMenuSystem menuSystem(&mainMenu, menuRenderContext);
 
 		bool appRunning = true;
+		std::optional<GameConfig> pendingOnlineMatch;
 
 		menuSystem.setStartGameCallback([&](const GameConfig& config) {
+			if (pendingOnlineMatch) {
+				std::cerr << "[App] A lobby request is already in progress" << std::endl;
+				return;
+			}
 			if (config.onlineMode) {
+				bool requested = false;
 				if (!config.lobbyId.empty()) {
-					steamSession.joinLobbyById(config.lobbyId);
-					std::cout << "[App] Joining Steam lobby " << config.lobbyId << std::endl;
+					requested = steamSession.joinLobbyById(config.lobbyId);
 				}
 				else if (config.gameMode == "Steam Lobby") {
-					steamSession.startHostSession(config.levelName.empty() ? "Steam Lobby" : config.levelName,
+					requested = steamSession.startHostSession(config.levelName.empty() ? "Steam Lobby" : config.levelName,
 						std::max(1, config.totalPlayers));
-					std::cout << "[App] Host session started. Role: " << (steamSession.isHost() ? "Host" : "Client") << std::endl;
 				}
-				steamSession.setLocalReady(true);
+				if (requested) pendingOnlineMatch = config;
+				else std::cerr << "[App] Could not request Steam lobby" << std::endl;
+				return;
 			}
 			game.startMatch(config);
 		});
@@ -91,6 +98,12 @@ int main(int, char**) {
 			SDL_Event event;
 			while (SDL_PollEvent(&event)) {
 				if (game.isInMenu()) {
+					if (pendingOnlineMatch && event.type == SDL_KEYDOWN
+						&& event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+						steamSession.leaveLobby();
+						pendingOnlineMatch.reset();
+						continue;
+					}
 					menuSystem.update(event);
 				}
 				else {
@@ -101,6 +114,19 @@ int main(int, char**) {
 			gameTime.updateTime();
 
 			steamSession.update();
+			if (pendingOnlineMatch) {
+				if (steamSession.lobbyInfo().available) {
+					steamSession.setLocalReady(true);
+					if (!game.startMatch(*pendingOnlineMatch)) {
+						steamSession.leaveLobby();
+					}
+					pendingOnlineMatch.reset();
+				}
+				else if (steamSession.state() == SteamSessionState::Offline) {
+					std::cerr << "[App] Steam lobby request failed" << std::endl;
+					pendingOnlineMatch.reset();
+				}
+			}
 			if (game.isInMenu()) {
 				steamSession.refreshLobbyList();
 				mainMenu.setAvailableLobbies(steamSession.availableLobbies());

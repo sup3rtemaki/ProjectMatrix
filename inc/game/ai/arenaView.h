@@ -1,6 +1,7 @@
 #pragma once
 
 #include "collision/geometry2D.h"
+#include "collision/wallIndex.h"
 #include "world/pickupSighting.h"
 
 #include <vector>
@@ -18,11 +19,12 @@ struct RaycastHit {
 struct ArenaView {
 	float worldWidth = 0.0f;
 	float worldHeight = 0.0f;
-	std::vector<RectF> walls;
+	const std::vector<RectF>& walls;
 	std::vector<Vec2> mines;
 	std::vector<LineSegment> segments; // all active trail segments from all cycles
 	std::vector<Vec2> chaseTargets; // all alive bikes and the player, used for pursuit selection
 	const std::vector<PickupSighting>& pickups;
+	const WallIndex* wallIndex = nullptr;
 
 	// Casts a ray from origin in dir up to maxDist, ignoring self's recent trail (within safeSelfDist).
 	RaycastHit raycast(Vec2 origin, Vec2 dir, float maxDist, const Cycle* self, float safeSelfDist = 24.0f) const;

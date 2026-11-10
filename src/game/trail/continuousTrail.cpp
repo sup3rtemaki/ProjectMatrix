@@ -55,6 +55,10 @@ void ContinuousTrail::clear() {
 	vertices_.clear();
 }
 
+void ContinuousTrail::setVertices(const std::vector<Vec2>& vertices) {
+	vertices_.assign(vertices.begin(), vertices.end());
+}
+
 float ContinuousTrail::getLength() const {
 	if (vertices_.size() < 2) return 0.0f;
 	float len = 0.0f;

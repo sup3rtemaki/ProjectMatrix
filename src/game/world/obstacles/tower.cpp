@@ -55,6 +55,9 @@ Tower::Tower(SDL_Rect cells, int cellSize, SDL_Renderer* renderer, const std::st
 
 void Tower::tick(float elapsedSeconds, const std::vector<Cycle*>& cycles) {
 	deltaTime = elapsedSeconds;
+	if (target != nullptr && std::find(cycles.begin(), cycles.end(), target) == cycles.end()) {
+		target = nullptr;
+	}
 	update();
 	updateAttack(cycles);
 	updateProjectiles(cycles);
@@ -68,6 +71,56 @@ void Tower::update() {
 void Tower::drawProjectiles(const RenderContext& context) {
 	for (const std::unique_ptr<Projectile>& projectile : projectiles_) {
 		projectile->draw(context);
+	}
+}
+
+SnapshotTower Tower::snapshot(const SDL_Rect& placement) const {
+	SnapshotTower result;
+	result.placement = { static_cast<std::uint32_t>(placement.x), static_cast<std::uint32_t>(placement.y),
+		static_cast<std::uint32_t>(placement.w), static_cast<std::uint32_t>(placement.h) };
+	result.attacking = state == TOWER_STATE_ATTACK;
+	result.animationFrame = currentFrame == nullptr ? 0 : static_cast<std::uint32_t>(currentFrame->frameNumber);
+	result.projectiles.reserve(projectiles_.size());
+	for (const auto& projectile : projectiles_) {
+		if (!projectile->expired()) {
+			result.projectiles.push_back({ { projectile->x, projectile->y },
+				projectile->currentFrame == nullptr ? 0u : static_cast<std::uint32_t>(projectile->currentFrame->frameNumber) });
+		}
+	}
+	return result;
+}
+
+bool Tower::canApplySnapshot(const SnapshotTower& snapshot) {
+	Animation* animation = animSet == nullptr ? nullptr
+		: animSet->getAnimation(snapshot.attacking ? TOWER_ANIM_ATTACK : TOWER_ANIM_IDLE);
+	if (animation == nullptr || snapshot.animationFrame >= animation->frames.size()) return false;
+	if (!snapshot.projectiles.empty()) {
+		std::unique_ptr<Projectile> probe;
+		const Projectile* sample = projectiles_.empty() ? nullptr : projectiles_.front().get();
+		if (sample == nullptr) {
+			probe = projectileFactory_->create(ProjectileType::Triangle, { 0.0f, 0.0f }, { 0.0f, 0.0f });
+			sample = probe.get();
+		}
+		if (sample->currentAnim == nullptr) return false;
+		for (const SnapshotProjectile& projectile : snapshot.projectiles) {
+			if (projectile.animationFrame >= sample->currentAnim->frames.size()) return false;
+		}
+	}
+	return true;
+}
+
+void Tower::applySnapshot(const SnapshotTower& snapshot) {
+	changeAnimation(snapshot.attacking ? TOWER_STATE_ATTACK : TOWER_STATE_IDLE, true);
+	currentFrame = currentAnim->getFrame(static_cast<int>(snapshot.animationFrame));
+	frameTimer = 0.0f;
+	target = nullptr;
+	applyCollisionBoxFromCurrentFrame();
+	while (projectiles_.size() > snapshot.projectiles.size()) projectiles_.pop_back();
+	while (projectiles_.size() < snapshot.projectiles.size()) {
+		projectiles_.push_back(projectileFactory_->create(ProjectileType::Triangle, { 0.0f, 0.0f }, { 0.0f, 0.0f }));
+	}
+	for (std::size_t i = 0; i < projectiles_.size(); ++i) {
+		projectiles_[i]->applySnapshot(snapshot.projectiles[i]);
 	}
 }
 

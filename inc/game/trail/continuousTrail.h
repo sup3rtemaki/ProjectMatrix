@@ -19,6 +19,7 @@ public:
 	void onTurn(Vec2 cornerPos);
 	void trim(float maxAllowedLength);
 	void clear();
+	void setVertices(const std::vector<Vec2>& vertices);
 
 	float getLength() const;
 	bool empty() const { return vertices_.size() < 2; }

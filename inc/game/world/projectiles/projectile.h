@@ -31,8 +31,10 @@ public:
 	bool expired() const { return !active; }
 
 private:
+	friend class Tower;
 	static constexpr float MAX_STEP_PIXELS = 4.0f;
 
+	void applySnapshot(const SnapshotProjectile& snapshot);
 	void updateAnimation();
 	void applyCollisionBoxFromCurrentFrame();
 	bool hits(const Cycle& cycle) const;

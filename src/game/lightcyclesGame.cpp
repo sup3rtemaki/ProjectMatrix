@@ -69,8 +69,32 @@ std::vector<std::string> LightcyclesGame::getAvailableLevelNames() const {
 bool LightcyclesGame::startMatch(const GameConfig& config) {
 	activeConfig_ = config;
 	onlineMatch_.reset();
+	remoteInputs_.clear();
+	inputSequence_ = 0;
+	sessionHostId_ = 0;
+	inputSendTimer_ = 0.0f;
+	readySendTimer_ = 0.0f;
+	timeWithoutFrame_ = 0.0f;
+	readyPlayers_.clear();
+	snapshotSendTimer_ = 0.0f;
+	snapshotSendSequence_ = 0;
+	frameAssembler_.reset();
+	receivedFrameSequence_.reset();
+	visualCycles_.clear();
+	visualMotions_.clear();
+	visualLocalId_ = 0;
+	visualInterpolationTime_ = 0.0f;
+	receivedFrame_ = false;
+	matchStarted_ = false;
 	if (config.onlineMode) {
-		onlineMatch_.beginSession(true, 1, std::max(0, config.totalPlayers - 1));
+		if (steamSession_ == nullptr || !steamSession_->lobbyInfo().available
+			|| steamSession_->hostSteamId() == 0 || steamSession_->localSteamId() == 0) {
+			std::cerr << "[Game] Cannot start without an active Steam lobby" << std::endl;
+			return false;
+		}
+		sessionHostId_ = steamSession_->hostSteamId();
+		onlineMatch_.beginSession(steamSession_->isHost(), 1,
+			std::max(0, config.totalPlayers - 1));
 	}
 
 	std::size_t targetLevel = config.levelIndex;
@@ -126,6 +150,8 @@ bool LightcyclesGame::startMatch(const GameConfig& config) {
 void LightcyclesGame::returnToMenu() {
 	inMenu_ = true;
 	accelerating_ = braking_ = steeringLeft_ = steeringRight_ = false;
+	if (onlineMatch_.enabled && steamSession_ != nullptr) steamSession_->leaveLobby();
+	remoteInputs_.clear();
 }
 
 std::string LightcyclesGame::levelPath(std::size_t index) const {
@@ -215,6 +241,10 @@ void LightcyclesGame::handleEvent(SDL_Event& event) {
 		}
 		if (event.key.keysym.scancode == SDL_SCANCODE_RETURN
 			&& result_ != GameResult::Running) {
+			if (onlineMatch_.enabled) {
+				returnToMenu();
+				return;
+			}
 			if (result_ == GameResult::PlayerWon) {
 				const int savedScore = player_.score();
 				if (loadLevel((levelIndex_ + 1) % levelCount_)) {
@@ -235,63 +265,301 @@ void LightcyclesGame::handleEvent(SDL_Event& event) {
 }
 
 void LightcyclesGame::update(float elapsedSeconds) {
-	if (result_ != GameResult::Running) {
-		return;
-	}
-
-	const std::uint32_t previousOnlineTick = onlineMatch_.tick;
+	if (!onlineMatch_.enabled && result_ != GameResult::Running) return;
 	if (onlineMatch_.enabled) {
-		onlineMatch_.advanceTick(elapsedSeconds);
-		if (steamSession_ != nullptr) {
-			const std::vector<OnlineInputPacket> remoteInputs = steamSession_->drainInputPackets();
-			for (const auto& packet : remoteInputs) {
-				if (packet.playerId != onlineMatch_.localPlayerId) {
-					onlineMatch_.queueInput(packet.playerId, packet.angle, packet.turnQueued);
-					std::cout << "[Game] applied remote input: player=" << packet.playerId << ", seq=" << packet.sequence << std::endl;
+		updateOnlineInputs(elapsedSeconds);
+		if (inMenu_) return;
+		if (onlineMatch_.host) {
+			if (!matchStarted_) {
+				const auto connected = std::count_if(remoteCycles_.begin(), remoteCycles_.end(),
+					[](const auto& entry) { return entry.second.connected; });
+				if (connected + 1 >= std::max(1, activeConfig_.totalPlayers)) {
+					if (!steamSession_->setLobbyJoinable(false)) {
+						returnToMenu();
+						return;
+					}
+					matchStarted_ = true;
 				}
 			}
-			const std::vector<OnlineMatchSnapshot> snapshots = steamSession_->drainSnapshots();
-			for (const auto& snapshot : snapshots) {
-				onlineMatch_.applyRemoteSnapshot(snapshot);
-			}
+			if (matchStarted_ && result_ == GameResult::Running) updateCycles(std::min(elapsedSeconds, 0.25f));
+			sendOnlineFrame(elapsedSeconds);
 		}
-		if (onlineMatch_.host && steamSession_ != nullptr) {
-			OnlineMatchSnapshot snapshot;
-			snapshot.tick = onlineMatch_.tick;
-			snapshot.hostPlayerId = onlineMatch_.localPlayerId;
-			OnlinePlayerState localState;
-			localState.playerId = onlineMatch_.localPlayerId;
-			localState.name = "Local Host";
-			localState.local = true;
-			localState.alive = player_.alive();
-			localState.ready = true;
-			localState.isHost = true;
-			localState.x = player_.center().x;
-			localState.y = player_.center().y;
-			localState.direction = static_cast<float>(player_.direction());
-			localState.score = player_.score();
-			localState.lives = player_.lives();
-			snapshot.players.push_back(localState);
-			for (const auto& remote : onlineMatch_.remotePlayers) {
-				snapshot.players.push_back(remote);
-			}
-			steamSession_->queueSnapshot(snapshot);
+		else {
+			updateVisualInterpolation(elapsedSeconds);
 		}
 	}
-
-	updateCycles(std::min(elapsedSeconds, 0.25f));
-	if (onlineMatch_.enabled && onlineMatch_.tick != previousOnlineTick
-		&& steeringLeft_ != steeringRight_ && player_.alive() && !player_.isRespawning()) {
-		OnlineInputPacket packet;
-		packet.playerId = onlineMatch_.localPlayerId;
-		packet.angle = player_.headingDegrees();
-		packet.turnQueued = true;
-		onlineMatch_.queueInput(packet.playerId, packet.angle, packet.turnQueued);
-		if (steamSession_ != nullptr) steamSession_->queueInputPacket(packet);
+	else if (result_ == GameResult::Running) {
+		updateCycles(std::min(elapsedSeconds, 0.25f));
 	}
 
 	cameraController_.deltaTime = std::min(elapsedSeconds, 0.25f);
 	cameraController_.update(renderContext_.camera, level_.width * CELL_SIZE, level_.height * CELL_SIZE);
+}
+
+void LightcyclesGame::updateOnlineInputs(float elapsedSeconds) {
+	if (steamSession_ == nullptr || !steamSession_->lobbyInfo().available) {
+		std::cerr << "[Game] Steam lobby is unavailable; returning to menu" << std::endl;
+		returnToMenu();
+		return;
+	}
+	const std::uint64_t owner = steamSession_->hostSteamId();
+	if (owner == 0 || owner != sessionHostId_
+		|| (owner == steamSession_->localSteamId()) != onlineMatch_.host) {
+		std::cerr << "[Game] Lobby host changed or is unavailable; returning to menu" << std::endl;
+		returnToMenu();
+		return;
+	}
+	remoteInputs_.update(elapsedSeconds);
+	if (steamSession_->isHost()) {
+		if (!steamSession_->synchronizeDrivingPlayers(remoteInputs_)) return;
+		const auto members = steamSession_->lobbyMemberIds();
+		for (auto it = readyPlayers_.begin(); it != readyPlayers_.end();) {
+			if (std::find(members.begin(), members.end(), it->first) == members.end()) it = readyPlayers_.erase(it);
+			else ++it;
+		}
+		for (const SteamPeerMessage& message : steamSession_->receivePeerMessages()) {
+			if (message.type == SteamMessageType::Input) {
+				steamSession_->acceptDrivingInput(message, remoteInputs_);
+			}
+			else if (message.type == SteamMessageType::Ready && message.senderId != owner) {
+				const auto color = deserializePlayerReady(message.payload);
+				const auto existing = readyPlayers_.find(message.senderId);
+				if (color && ((existing == readyPlayers_.end() && !matchStarted_)
+					|| (existing != readyPlayers_.end() && existing->second == *color))) {
+					readyPlayers_[message.senderId] = *color;
+				}
+				else if (color) std::cerr << "[Game] Rejected late or changed player readiness" << std::endl;
+			}
+			else {
+				std::cerr << "[Game] Unexpected message received by host" << std::endl;
+			}
+		}
+		synchronizeRemoteCycles(members, elapsedSeconds);
+	}
+	else {
+		timeWithoutFrame_ += std::max(0.0f, elapsedSeconds);
+		for (const SteamPeerMessage& message : steamSession_->receivePeerMessages()) {
+			if (message.senderId != owner || message.type != SteamMessageType::Snapshot) {
+				std::cerr << "[Game] Rejected message from non-host or unexpected type" << std::endl;
+				continue;
+			}
+			const auto frame = frameAssembler_.accept(message.payload);
+			if (frame && applyOnlineFrame(*frame, steamSession_->localSteamId(), owner, steamSession_->lobbyMemberIds())) {
+				timeWithoutFrame_ = 0.0f;
+			}
+		}
+		if (timeWithoutFrame_ >= 15.0f) {
+			std::cerr << "[Game] No valid authoritative frame for 15 seconds; returning to menu" << std::endl;
+			returnToMenu();
+			return;
+		}
+		readySendTimer_ -= elapsedSeconds;
+		if (!matchStarted_ && readySendTimer_ <= 0.0f) {
+			readySendTimer_ = 0.5f;
+			if (activeConfig_.colorIndex < 0 || static_cast<std::size_t>(activeConfig_.colorIndex) >= NUM_PLAYER_COLOR_OPTIONS) {
+				std::cerr << "[Game] Invalid player color selection" << std::endl;
+				returnToMenu();
+				return;
+			}
+			steamSession_->sendPeerMessage(owner, SteamMessageType::Ready,
+				serializePlayerReady(static_cast<std::uint8_t>(activeConfig_.colorIndex)));
+		}
+		inputSendTimer_ -= elapsedSeconds;
+		if (inputSendTimer_ <= 0.0f) {
+			inputSendTimer_ = 1.0f / 30.0f;
+			const DrivingInputPacket packet{ ++inputSequence_,
+				{ accelerating_, braking_, steeringLeft_, steeringRight_ } };
+			steamSession_->sendDrivingInput(steamSession_->hostSteamId(), packet);
+		}
+	}
+}
+
+void LightcyclesGame::sendOnlineFrame(float elapsedSeconds) {
+	snapshotSendTimer_ -= elapsedSeconds;
+	if (snapshotSendTimer_ > 0.0f) return;
+	snapshotSendTimer_ = 0.1f;
+	const std::uint64_t localId = steamSession_->localSteamId();
+	const auto members = steamSession_->lobbyMemberIds();
+	if (members.size() < 2) return;
+	const std::uint32_t sequence = ++snapshotSendSequence_;
+	OnlineFrame frame;
+	frame.levelIndex = static_cast<std::uint16_t>(levelIndex_);
+	frame.phase = !matchStarted_ ? OnlinePhase::Waiting
+		: result_ == GameResult::Running ? OnlinePhase::Running : OnlinePhase::Finished;
+	frame.cycles = captureCycleSnapshot(localId, sequence);
+	frame.world = objects_.snapshot(sequence);
+	const auto parts = serializeOnlineFrame(frame);
+	if (!parts) {
+		std::cerr << "[Game] Failed to encode authoritative frame" << std::endl;
+		return;
+	}
+	for (const std::uint64_t id : members) {
+		if (id == localId) continue;
+		if (!steamSession_->sendPeerMessage(id, SteamMessageType::Snapshot, (*parts)[0])) continue;
+		steamSession_->sendPeerMessage(id, SteamMessageType::Snapshot, (*parts)[1]);
+	}
+}
+
+bool LightcyclesGame::applyOnlineFrame(const OnlineFrame& frame, std::uint64_t localId, std::uint64_t hostId,
+	const std::vector<std::uint64_t>& members) {
+	const auto reject = []() {
+		std::cerr << "[Game] Rejected incompatible authoritative frame" << std::endl;
+		return false;
+	};
+	if (localId == 0 || hostId == 0 || localId == hostId || frame.levelIndex != levelIndex_
+		|| frame.cycles.sequence != frame.world.sequence || !validateCycleSnapshot(frame.cycles)
+		|| static_cast<unsigned int>(frame.phase) > static_cast<unsigned int>(OnlinePhase::Finished)
+		|| (matchStarted_ && frame.phase == OnlinePhase::Waiting)
+		|| (result_ != GameResult::Running && frame.phase != OnlinePhase::Finished)) return reject();
+	SnapshotSequence nextSequence = receivedFrameSequence_;
+	if (!nextSequence.accept(frame.cycles.sequence)) return reject();
+	std::unique_ptr<Cycle> local;
+	std::map<std::pair<SnapshotCycleKind, std::uint64_t>, std::unique_ptr<Cycle>> others;
+	std::map<std::pair<SnapshotCycleKind, std::uint64_t>, VisualMotion> motions;
+	bool hasHost = false;
+	int aliveCount = 0;
+	for (const SnapshotCycle& state : frame.cycles.cycles) {
+		if (state.kind == SnapshotCycleKind::Human) {
+			if (std::find(members.begin(), members.end(), state.id) == members.end()) return reject();
+			if (state.id == hostId) hasHost = true;
+		}
+		else if (state.id > CycleSnapshot::MAX_BOTS) return reject();
+		const SDL_Color glow{ state.glow[0], state.glow[1], state.glow[2], state.glow[3] };
+		const SDL_Color core{ state.core[0], state.core[1], state.core[2], state.core[3] };
+		auto cycle = std::make_unique<Cycle>(glow, core, cycleSkins_.forColor(core), CELL_SIZE);
+		if (!cycle->applyVisualSnapshot(state)) return reject();
+		const auto key = std::make_pair(state.kind, state.id);
+		const Cycle* previous = nullptr;
+		if (receivedFrame_) {
+			if (state.kind == SnapshotCycleKind::Human && state.id == localId) previous = &player_;
+			else {
+				const auto found = visualCycles_.find(key);
+				if (found != visualCycles_.end()) previous = found->second.get();
+			}
+		}
+		if (previous != nullptr && previous->alive() && cycle->alive()
+			&& !previous->isRespawning() && !cycle->isRespawning()
+			&& geom::distanceSq(previous->center(), cycle->center()) < 128.0f * 128.0f) {
+			const VisualMotion motion{ previous->center(), cycle->center(), previous->headingDegrees(),
+				std::remainder(cycle->headingDegrees() - previous->headingDegrees(), 360.0f) };
+			motions.emplace(key, motion);
+			cycle->setVisualPose(motion.from, motion.fromHeading);
+		}
+		if (!cycle->isEliminated()) ++aliveCount;
+		if (state.kind == SnapshotCycleKind::Human && state.id == localId) local = std::move(cycle);
+		else others.emplace(key, std::move(cycle));
+	}
+	if (!local || !hasHost || (frame.phase == OnlinePhase::Finished && aliveCount > 1)
+		|| !objects_.applySnapshot(frame.world)) return reject();
+	player_ = std::move(*local);
+	visualCycles_ = std::move(others);
+	visualMotions_ = std::move(motions);
+	visualLocalId_ = localId;
+	visualInterpolationTime_ = 0.0f;
+	receivedFrameSequence_ = nextSequence;
+	receivedFrame_ = true;
+	matchStarted_ = frame.phase != OnlinePhase::Waiting;
+	if (frame.phase == OnlinePhase::Finished) {
+		result_ = aliveCount == 0 ? GameResult::Draw
+			: player_.isEliminated() ? GameResult::PlayerLost : GameResult::PlayerWon;
+	}
+	else {
+		result_ = GameResult::Running;
+	}
+	return true;
+}
+
+void LightcyclesGame::updateVisualInterpolation(float elapsedSeconds) {
+	constexpr float SNAPSHOT_INTERVAL = 0.1f;
+	visualInterpolationTime_ = std::min(SNAPSHOT_INTERVAL, visualInterpolationTime_ + std::max(0.0f, elapsedSeconds));
+	const float alpha = visualInterpolationTime_ / SNAPSHOT_INTERVAL;
+	for (const auto& entry : visualMotions_) {
+		Cycle* cycle = nullptr;
+		if (entry.first.first == SnapshotCycleKind::Human && entry.first.second == visualLocalId_) cycle = &player_;
+		else {
+			const auto found = visualCycles_.find(entry.first);
+			if (found != visualCycles_.end()) cycle = found->second.get();
+		}
+		if (cycle == nullptr) continue;
+		const VisualMotion& motion = entry.second;
+		cycle->setVisualPose(motion.from + (motion.to - motion.from) * alpha,
+			motion.fromHeading + motion.headingDelta * alpha);
+	}
+}
+
+CycleSnapshot LightcyclesGame::captureCycleSnapshot(std::uint64_t hostId, std::uint32_t sequence) const {
+	CycleSnapshot snapshot;
+	snapshot.sequence = sequence;
+	snapshot.cycles.push_back(player_.snapshot(SnapshotCycleKind::Human, hostId));
+	for (const auto& remote : remoteCycles_) {
+		if (remote.second.connected) {
+			snapshot.cycles.push_back(remote.second.cycle->snapshot(SnapshotCycleKind::Human, remote.first));
+		}
+	}
+	for (std::size_t i = 0; i < enemies_.size(); ++i) {
+		snapshot.cycles.push_back(enemies_[i].snapshot(SnapshotCycleKind::Bot, i + 1));
+	}
+	return snapshot;
+}
+
+bool LightcyclesGame::spawnRemoteCycle(Cycle& cycle) {
+	for (int attempt = 0; attempt < 20; ++attempt) {
+		SDL_Point cell;
+		Direction direction;
+		if (!findSafeRespawn(cell, direction, false)) break;
+		const Vec2 position = { static_cast<float>(cell.x * CELL_SIZE + CELL_SIZE / 2),
+			static_cast<float>(cell.y * CELL_SIZE + CELL_SIZE / 2) };
+		const auto tooClose = [&](const Cycle& other) {
+			return &other != &cycle && other.alive() && !other.isRespawning()
+				&& geom::distanceSq(position, other.center()) < 80.0f * 80.0f;
+		};
+		if (tooClose(player_) || std::any_of(enemies_.begin(), enemies_.end(), tooClose)) continue;
+		bool occupied = false;
+		for (const auto& remote : remoteCycles_) {
+			if (remote.second.connected && tooClose(*remote.second.cycle)) {
+				occupied = true;
+				break;
+			}
+		}
+		if (occupied) continue;
+		cycle.reset(cell, direction);
+		return true;
+	}
+	std::cerr << "[Game] Could not find a safe spawn for a remote player" << std::endl;
+	return false;
+}
+
+void LightcyclesGame::synchronizeRemoteCycles(const std::vector<std::uint64_t>& members, float elapsedSeconds) {
+	const std::uint64_t localId = steamSession_->localSteamId();
+	for (auto& remote : remoteCycles_) {
+		if (std::find(members.begin(), members.end(), remote.first) == members.end()) {
+			remote.second.connected = false;
+			remote.second.retired = true;
+			remote.second.cycle->crash();
+			remote.second.cycle->clearTrail();
+		}
+	}
+	for (const std::uint64_t id : members) {
+		if (id == 0 || id == localId) continue;
+		const auto ready = readyPlayers_.find(id);
+		if (ready == readyPlayers_.end()) continue;
+		auto found = remoteCycles_.find(id);
+		if (found == remoteCycles_.end()) {
+			const auto& color = PLAYER_COLOR_OPTIONS[ready->second];
+			RemoteCycle remote;
+			remote.cycle = std::make_unique<Cycle>(color.glow, color.core, cycleSkins_.forColor(color.core), CELL_SIZE);
+			found = remoteCycles_.emplace(id, std::move(remote)).first;
+		}
+		RemoteCycle& remote = found->second;
+		remote.retired = false;
+		if (!remote.connected) {
+			remote.spawnRetrySeconds -= elapsedSeconds;
+			if (remote.spawnRetrySeconds <= 0.0f) {
+				remote.connected = spawnRemoteCycle(*remote.cycle);
+				remote.spawnRetrySeconds = 1.0f;
+			}
+		}
+	}
 }
 
 void LightcyclesGame::render() {
@@ -328,21 +596,17 @@ void LightcyclesGame::render() {
 		cycle.trail().queueDraw(depthQueue_, renderer_, renderContext_.camera, offsetY, cycle.glowColor(),
 			cycle.coreColor(), sortY);
 	};
-	for (Cycle& enemy : enemies_) {
-		queueCycle(enemy);
+	if (onlineMatch_.enabled && !onlineMatch_.host) {
+		for (auto& remote : visualCycles_) queueCycle(*remote.second);
+		if (receivedFrame_) queueCycle(player_);
 	}
-	if (onlineMatch_.enabled) {
-		for (const OnlinePlayerState& remote : onlineMatch_.remotePlayers) {
-			depthQueue_.add(remote.y, [this, &remote]() {
-				const int x = static_cast<int>(remote.x) - renderContext_.camera.x;
-				const int y = HUD_HEIGHT + static_cast<int>(remote.y) - renderContext_.camera.y;
-				const SDL_Rect remoteRect = { x - 5, y - 5, 10, 10 };
-				SDL_SetRenderDrawColor(renderer_, 255, 160, 85, 255);
-				SDL_RenderFillRect(renderer_, &remoteRect);
-			});
+	else {
+		for (Cycle& enemy : enemies_) queueCycle(enemy);
+		for (auto& remote : remoteCycles_) {
+			if (remote.second.connected) queueCycle(*remote.second.cycle);
 		}
+		queueCycle(player_);
 	}
-	queueCycle(player_);
 	depthQueue_.flush();
 
 	objects_.drawProjectiles(drawContext);
@@ -359,11 +623,26 @@ void LightcyclesGame::render() {
 	hudState.totalEnemies = static_cast<int>(enemies_.size());
 	hudState.enemiesAlive = static_cast<int>(std::count_if(enemies_.begin(), enemies_.end(),
 		[](const Cycle& enemy) { return !enemy.isEliminated(); }));
+	if (onlineMatch_.enabled && !onlineMatch_.host) {
+		hudState.totalEnemies = static_cast<int>(visualCycles_.size());
+		hudState.enemiesAlive = static_cast<int>(std::count_if(visualCycles_.begin(), visualCycles_.end(),
+			[](const auto& cycle) { return !cycle.second->isEliminated(); }));
+	}
+	else if (onlineMatch_.enabled) {
+		for (const auto& remote : remoteCycles_) {
+			if (remote.second.connected) {
+				++hudState.totalEnemies;
+				if (!remote.second.cycle->isEliminated()) ++hudState.enemiesAlive;
+			}
+		}
+	}
 	hudState.levelName = level_.name;
 	hudState.isRespawning = player_.isRespawning();
 	hudState.hasBoost = player_.effects().isActive(EffectType::Boost);
 	hudState.hasLongTrail = player_.effects().isActive(EffectType::LongTrail);
 	hudState.hasSlow = player_.effects().isActive(EffectType::Slow);
+	hudState.online = onlineMatch_.enabled;
+	hudState.waiting = onlineMatch_.enabled && !matchStarted_;
 
 	switch (result_) {
 	case GameResult::PlayerWon: hudState.status = HudGameStatus::PlayerWon; break;
@@ -403,7 +682,8 @@ ArenaView LightcyclesGame::buildArenaView() const {
 		objects_.getMinePositions(),
 		{},
 		{},
-		objects_.pickups()
+		objects_.pickups(),
+		&objects_.wallIndex()
 	};
 
 	if (player_.alive() && !player_.isRespawning()) {
@@ -415,6 +695,14 @@ ArenaView LightcyclesGame::buildArenaView() const {
 		if (enemy.alive() && !enemy.isRespawning()) {
 			arena.chaseTargets.push_back(enemy.center());
 			auto segs = enemy.trail().getSegments(&enemy, false);
+			arena.segments.insert(arena.segments.end(), segs.begin(), segs.end());
+		}
+	}
+	for (const auto& remote : remoteCycles_) {
+		const Cycle& cycle = *remote.second.cycle;
+		if (remote.second.connected && cycle.alive() && !cycle.isRespawning()) {
+			arena.chaseTargets.push_back(cycle.center());
+			auto segs = cycle.trail().getSegments(&cycle, false);
 			arena.segments.insert(arena.segments.end(), segs.begin(), segs.end());
 		}
 	}
@@ -439,8 +727,9 @@ bool LightcyclesGame::checkCycleCollision(const Cycle& cycle, Vec2 before, Vec2 
 	}
 
 	// 2. Obstacle walls
-	const auto wallBoxes = objects_.getWallBoxes();
-	for (const RectF& wall : wallBoxes) {
+	const auto& wallBoxes = objects_.getWallBoxes();
+	for (const std::size_t index : objects_.wallIndex().query(sweptBounds(start, displacement))) {
+		const RectF& wall = wallBoxes[index];
 		if (geom::sweptBoxIntersectsBox(start, displacement, geom::orientedBox(wall, { 0.0f, 0.0f }, 0.0f))) {
 			return true;
 		}
@@ -470,6 +759,9 @@ bool LightcyclesGame::checkCycleCollision(const Cycle& cycle, Vec2 before, Vec2 
 			return true;
 		}
 	}
+	for (const auto& remote : remoteCycles_) {
+		if (remote.second.connected && hitsTrail(*remote.second.cycle)) return true;
+	}
 
 	return false;
 }
@@ -477,6 +769,9 @@ void LightcyclesGame::updateCycles(float elapsedSeconds) {
 	updateCycleRespawn(player_, elapsedSeconds);
 	for (Cycle& enemy : enemies_) {
 		updateCycleRespawn(enemy, elapsedSeconds);
+	}
+	for (auto& remote : remoteCycles_) {
+		if (remote.second.connected) updateCycleRespawn(*remote.second.cycle, elapsedSeconds);
 	}
 
 	float fastest = 2.0f;
@@ -490,15 +785,29 @@ void LightcyclesGame::updateCycles(float elapsedSeconds) {
 			fastest = std::max(fastest, enemy.effects().speedMultiplier());
 		}
 	}
+	for (auto& remote : remoteCycles_) {
+		Cycle& cycle = *remote.second.cycle;
+		if (remote.second.connected && cycle.alive() && !cycle.isRespawning()) {
+			cycle.effects().update(elapsedSeconds);
+			fastest = std::max(fastest, cycle.effects().speedMultiplier());
+		}
+	}
 	std::vector<std::uint8_t> dummyOccupied(level_.width * level_.height, 0);
 	std::vector<Cycle*> cycles = { &player_ };
 	for (Cycle& enemy : enemies_) {
 		cycles.push_back(&enemy);
 	}
+	for (auto& remote : remoteCycles_) {
+		if (remote.second.connected) cycles.push_back(remote.second.cycle.get());
+	}
 	for (Cycle* cycle : cycles) {
 		cycle->updateAnimation(elapsedSeconds);
 	}
 	objects_.update(elapsedSeconds, dummyOccupied, cycles);
+	for (auto it = remoteCycles_.begin(); it != remoteCycles_.end();) {
+		if (it->second.retired) it = remoteCycles_.erase(it);
+		else ++it;
+	}
 	// Objects such as towers can crash a cycle outside its own movement.
 	for (Cycle* cycle : cycles) {
 		if (!cycle->alive()) {
@@ -520,12 +829,20 @@ void LightcyclesGame::updateCycles(float elapsedSeconds) {
 				moveCycle(enemies_[index], brains_[index].get(), index, stepSeconds);
 			}
 		}
+		for (auto& remote : remoteCycles_) {
+			Cycle& cycle = *remote.second.cycle;
+			if (remote.second.connected && cycle.alive() && !cycle.isRespawning()) {
+				const auto input = remoteInputs_.input(remote.first);
+				if (input) moveCycle(cycle, nullptr, 0, stepSeconds, &*input);
+			}
+		}
 		crashCollidingHeads();
 		updateResult();
 	}
 }
 
-void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, std::size_t enemyIndex, float elapsedSeconds) {
+void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, std::size_t enemyIndex, float elapsedSeconds,
+	const DrivingInput* remoteInput) {
 	if (!cycle.alive() || cycle.isRespawning()) {
 		return;
 	}
@@ -538,6 +855,9 @@ void LightcyclesGame::moveCycle(Cycle& cycle, EnemyBrain* brain, std::size_t ene
 		const float steering = static_cast<float>(steeringRight_) - static_cast<float>(steeringLeft_);
 		const float throttle = static_cast<float>(accelerating_) - static_cast<float>(braking_);
 		cycle.steer(steering, throttle, elapsedSeconds);
+	}
+	else if (remoteInput != nullptr) {
+		cycle.steer(remoteInput->steering(), remoteInput->throttle(), elapsedSeconds);
 	}
 
 	const Vec2 before = cycle.center();
@@ -583,7 +903,7 @@ void LightcyclesGame::updateCycleRespawn(Cycle& cycle, float elapsedSeconds) {
 	}
 }
 
-bool LightcyclesGame::findSafeRespawn(SDL_Point& outCell, Direction& outDir) {
+bool LightcyclesGame::findSafeRespawn(SDL_Point& outCell, Direction& outDir, bool allowFallback) {
 	const ArenaView arena = buildArenaView();
 
 	for (int attempt = 0; attempt < 100; ++attempt) {
@@ -620,6 +940,7 @@ bool LightcyclesGame::findSafeRespawn(SDL_Point& outCell, Direction& outDir) {
 		}
 	}
 
+	if (!allowFallback) return false;
 	outCell = { level_.width / 2, level_.height / 2 };
 	outDir = Direction::East;
 	return true;
@@ -654,6 +975,10 @@ void LightcyclesGame::crashCollidingHeads() {
 			alive.push_back(&enemy);
 		}
 	}
+	for (auto& remote : remoteCycles_) {
+		Cycle& cycle = *remote.second.cycle;
+		if (remote.second.connected && cycle.alive() && !cycle.isRespawning()) alive.push_back(&cycle);
+	}
 
 	for (std::size_t first = 0; first < alive.size(); ++first) {
 		for (std::size_t second = first + 1; second < alive.size(); ++second) {
@@ -671,41 +996,20 @@ void LightcyclesGame::updateResult() {
 	}
 
 	if (onlineMatch_.enabled) {
-		const bool playerEliminated = player_.isEliminated();
-		if (playerEliminated) {
-			result_ = GameResult::PlayerLost;
-			return;
+		int participants = 1 + static_cast<int>(enemies_.size());
+		int survivors = player_.isEliminated() ? 0 : 1;
+		for (const Cycle& enemy : enemies_) {
+			if (!enemy.isEliminated()) ++survivors;
 		}
-
-		bool hasOtherOpponents = false;
-		for (const auto& remote : onlineMatch_.remotePlayers) {
-			if (remote.alive) {
-				hasOtherOpponents = true;
-				break;
+		for (const auto& remote : remoteCycles_) {
+			if (remote.second.connected) {
+				++participants;
+				if (!remote.second.cycle->isEliminated()) ++survivors;
 			}
 		}
-		if (!hasOtherOpponents) {
-			const bool hasAiOpponents = std::any_of(enemies_.begin(), enemies_.end(),
-				[](const Cycle& enemy) { return enemy.alive() && !enemy.isRespawning(); });
-			if (!hasAiOpponents) {
-				return; // empty lobby / solo waiting state: do not auto-win while nobody has joined yet
-			}
-		}
-
-		bool otherPlayersAlive = false;
-		for (const auto& remote : onlineMatch_.remotePlayers) {
-			if (remote.alive) {
-				otherPlayersAlive = true;
-				break;
-			}
-		}
-		if (!otherPlayersAlive) {
-			const bool aiAlive = std::any_of(enemies_.begin(), enemies_.end(),
-				[](const Cycle& enemy) { return enemy.alive() && !enemy.isRespawning(); });
-			if (!aiAlive) {
-				result_ = GameResult::PlayerWon;
-				return;
-			}
+		if ((participants > 1 || (matchStarted_ && activeConfig_.totalPlayers > 1)) && survivors <= 1) {
+			result_ = survivors == 0 ? GameResult::Draw
+				: player_.isEliminated() ? GameResult::PlayerLost : GameResult::PlayerWon;
 		}
 		return;
 	}
@@ -739,6 +1043,8 @@ void LightcyclesGame::reset() {
 
 	std::vector<std::uint8_t> dummyOccupied(level_.width * level_.height, 0);
 	objects_.reset(level_, startCells, dummyOccupied);
+	remoteCycles_.clear();
+	remoteInputs_.clear();
 
 	renderContext_.camera.x = std::clamp(static_cast<int>(player_.x) - renderContext_.camera.w / 2,
 		0, level_.width * CELL_SIZE - renderContext_.camera.w);

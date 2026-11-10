@@ -70,6 +70,15 @@ void Projectile::updateCollisionBox() {
 	collisionBox.h = collisionBoxH;
 }
 
+void Projectile::applySnapshot(const SnapshotProjectile& snapshot) {
+	x = snapshot.position.x;
+	y = snapshot.position.y;
+	currentFrame = currentAnim->getFrame(static_cast<int>(snapshot.animationFrame));
+	frameTimer = 0.0f;
+	active = true;
+	applyCollisionBoxFromCurrentFrame();
+}
+
 void Projectile::applyCollisionBoxFromCurrentFrame() {
 	collisionBoxW = 0;
 	collisionBoxH = 0;

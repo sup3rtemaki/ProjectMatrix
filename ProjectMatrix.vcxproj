@@ -210,6 +210,7 @@
     <ClInclude Include="inc\game\level\spawnPlanner.h" />
     <ClInclude Include="inc\game\world\objectType.h" />
     <ClInclude Include="inc\game\collision\geometry2D.h" />
+    <ClInclude Include="inc\game\collision\wallIndex.h" />
     <ClInclude Include="inc\game\trail\continuousTrail.h" />
     <ClInclude Include="inc\game\rendering\shapes.h" />
     <ClInclude Include="inc\game\rendering\tileMapRenderer.h" />

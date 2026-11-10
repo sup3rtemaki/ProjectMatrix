@@ -32,8 +32,12 @@ public:
 	void changeAnimation(int newState, bool resetFrameToBeginning, string animName = "") override;
 	void updateAnimation();
 	void updateCollisionBox() override;
+	SnapshotTower snapshot(const SDL_Rect& placement) const;
 
 private:
+	friend class ArenaObjects;
+	bool canApplySnapshot(const SnapshotTower& snapshot);
+	void applySnapshot(const SnapshotTower& snapshot);
 	static bool isTargetable(const Cycle& cycle);
 
 	void applyCollisionBoxFromCurrentFrame();

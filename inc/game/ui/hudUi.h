@@ -24,6 +24,8 @@ struct HudState {
 	bool hasBoost = false;
 	bool hasLongTrail = false;
 	bool hasSlow = false;
+	bool online = false;
+	bool waiting = false;
 };
 
 class HudUi : public Ui {

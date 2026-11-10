@@ -19,6 +19,7 @@ class SteamSessionService;
 
 #include <cstdint>
 #include <memory>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -70,10 +71,19 @@ private:
 	ArenaView buildArenaView() const;
 	bool checkCycleCollision(const Cycle& cycle, Vec2 before, Vec2 after, Cycle*& outKiller);
 	void updateCycles(float elapsedSeconds);
-	void moveCycle(Cycle& cycle, EnemyBrain* brain, std::size_t enemyIndex, float elapsedSeconds);
+	void moveCycle(Cycle& cycle, EnemyBrain* brain, std::size_t enemyIndex, float elapsedSeconds,
+		const DrivingInput* remoteInput = nullptr);
+	void updateOnlineInputs(float elapsedSeconds);
+	void sendOnlineFrame(float elapsedSeconds);
+	bool applyOnlineFrame(const OnlineFrame& frame, std::uint64_t localId, std::uint64_t hostId,
+		const std::vector<std::uint64_t>& members);
+	void updateVisualInterpolation(float elapsedSeconds);
+	CycleSnapshot captureCycleSnapshot(std::uint64_t hostId, std::uint32_t sequence) const;
+	void synchronizeRemoteCycles(const std::vector<std::uint64_t>& members, float elapsedSeconds);
+	bool spawnRemoteCycle(Cycle& cycle);
 	void handleCycleCrash(Cycle& cycle);
 	void updateCycleRespawn(Cycle& cycle, float elapsedSeconds);
-	bool findSafeRespawn(SDL_Point& outCell, Direction& outDir);
+	bool findSafeRespawn(SDL_Point& outCell, Direction& outDir, bool allowFallback = true);
 	void respawnCycle(Cycle& cycle);
 	void crashCollidingHeads();
 	void updateResult();
@@ -91,6 +101,36 @@ private:
 	Cycle player_;
 	std::vector<Cycle> enemies_;
 	std::vector<std::unique_ptr<EnemyBrain>> brains_;
+	struct RemoteCycle {
+		std::unique_ptr<Cycle> cycle;
+		bool connected = false;
+		bool retired = false;
+		float spawnRetrySeconds = 0.0f;
+	};
+	std::map<std::uint64_t, RemoteCycle> remoteCycles_;
+	HostDrivingInputs remoteInputs_;
+	std::uint32_t inputSequence_ = 0;
+	std::uint64_t sessionHostId_ = 0;
+	float inputSendTimer_ = 0.0f;
+	float readySendTimer_ = 0.0f;
+	float timeWithoutFrame_ = 0.0f;
+	std::map<std::uint64_t, std::uint8_t> readyPlayers_;
+	float snapshotSendTimer_ = 0.0f;
+	std::uint32_t snapshotSendSequence_ = 0;
+	OnlineFrameAssembler frameAssembler_;
+	SnapshotSequence receivedFrameSequence_;
+	std::map<std::pair<SnapshotCycleKind, std::uint64_t>, std::unique_ptr<Cycle>> visualCycles_;
+	struct VisualMotion {
+		Vec2 from;
+		Vec2 to;
+		float fromHeading = 0.0f;
+		float headingDelta = 0.0f;
+	};
+	std::map<std::pair<SnapshotCycleKind, std::uint64_t>, VisualMotion> visualMotions_;
+	std::uint64_t visualLocalId_ = 0;
+	float visualInterpolationTime_ = 0.0f;
+	bool receivedFrame_ = false;
+	bool matchStarted_ = false;
 	OnlineMatchState onlineMatch_;
 	ArenaObjects objects_;
 	TileMapRenderer tileMap_;

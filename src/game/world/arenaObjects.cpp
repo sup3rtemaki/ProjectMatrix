@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <map>
+#include <tuple>
 
 namespace {
 constexpr float RETRY_SECONDS = 1.0f;
@@ -39,6 +41,7 @@ void ArenaObjects::reset(const LevelDefinition& level, const std::vector<SDL_Poi
 	const std::vector<std::uint8_t>& occupied) {
 	gridWidth_ = level.width;
 	gridHeight_ = level.height;
+	walls_.reset(gridWidth_, gridHeight_, cellSize_);
 	respawnSeconds_ = level.respawnSeconds;
 	entries_.clear();
 	respawns_.clear();
@@ -151,22 +154,6 @@ bool ArenaObjects::blocksProjectiles(const SDL_Rect& box) const {
 	return false;
 }
 
-std::vector<RectF> ArenaObjects::getWallBoxes() const {
-	std::vector<RectF> boxes;
-	for (const Entry& entry : entries_) {
-		if (entry.type == ObjectType::Wall && entry.object != nullptr) {
-			const SDL_Rect& cells = entry.object->cells();
-			boxes.push_back({
-				static_cast<float>(cells.x * cellSize_),
-				static_cast<float>(cells.y * cellSize_),
-				static_cast<float>(cells.w * cellSize_),
-				static_cast<float>(cells.h * cellSize_)
-			});
-		}
-	}
-	return boxes;
-}
-
 std::vector<Vec2> ArenaObjects::getMinePositions() const {
 	std::vector<Vec2> mines;
 	for (const Entry& entry : entries_) {
@@ -175,6 +162,108 @@ std::vector<Vec2> ArenaObjects::getMinePositions() const {
 		}
 	}
 	return mines;
+}
+
+WorldSnapshot ArenaObjects::snapshot(std::uint32_t sequence) const {
+	WorldSnapshot result;
+	result.sequence = sequence;
+	for (const Entry& entry : entries_) {
+		if (entry.type == ObjectType::Wall) continue;
+		if (entry.type == ObjectType::Tower) {
+			const Tower& tower = static_cast<const Tower&>(*entry.object);
+			result.towers.push_back(tower.snapshot(entry.placement));
+			continue;
+		}
+		SnapshotObjectType type;
+		switch (entry.type) {
+		case ObjectType::BoostPickup: type = SnapshotObjectType::Boost; break;
+		case ObjectType::LongTrailPickup: type = SnapshotObjectType::LongTrail; break;
+		case ObjectType::MineTrap: type = SnapshotObjectType::Mine; break;
+		case ObjectType::SlowTrap: type = SnapshotObjectType::Slow; break;
+		default:
+			std::cerr << "[ArenaObjects] Cannot capture unknown object type" << std::endl;
+			continue;
+		}
+		const SDL_Rect& cells = entry.placement;
+		result.objects.push_back({ type, { static_cast<std::uint32_t>(cells.x), static_cast<std::uint32_t>(cells.y),
+			static_cast<std::uint32_t>(cells.w), static_cast<std::uint32_t>(cells.h) } });
+	}
+	return result;
+}
+
+bool ArenaObjects::applySnapshot(const WorldSnapshot& snapshot) {
+	const auto reject = []() {
+		std::cerr << "[ArenaObjects] Rejected incompatible world snapshot" << std::endl;
+		return false;
+	};
+	if (!validateWorldSnapshot(snapshot) || gridWidth_ <= 0 || gridHeight_ <= 0) return reject();
+	using Key = std::tuple<int, int, int, int, int>;
+	const auto key = [](ObjectType type, const SDL_Rect& area) {
+		return Key(static_cast<int>(type), area.x, area.y, area.w, area.h);
+	};
+	const auto toRect = [](const SnapshotCellRect& cells) {
+		return SDL_Rect{ static_cast<int>(cells.x), static_cast<int>(cells.y),
+			static_cast<int>(cells.w), static_cast<int>(cells.h) };
+	};
+	const auto objectType = [](SnapshotObjectType type) -> std::optional<ObjectType> {
+		switch (type) {
+		case SnapshotObjectType::Boost: return ObjectType::BoostPickup;
+		case SnapshotObjectType::LongTrail: return ObjectType::LongTrailPickup;
+		case SnapshotObjectType::Mine: return ObjectType::MineTrap;
+		case SnapshotObjectType::Slow: return ObjectType::SlowTrap;
+		}
+		return std::nullopt;
+	};
+	std::vector<std::uint8_t> occupied(cells_.size(), 0);
+	std::map<Key, Tower*> towers;
+	std::map<Key, WorldObject*> dynamic;
+	for (const Entry& entry : entries_) {
+		if (entry.type == ObjectType::Wall || entry.type == ObjectType::Tower) {
+			if (entry.type == ObjectType::Tower) {
+				towers.emplace(key(entry.type, entry.placement), static_cast<Tower*>(entry.object.get()));
+			}
+			const SDL_Rect& area = entry.object->cells();
+			for (int y = std::max(area.y, 0); y < std::min(area.y + area.h, gridHeight_); ++y) {
+				for (int x = std::max(area.x, 0); x < std::min(area.x + area.w, gridWidth_); ++x) {
+					occupied[cellIndex(x, y)] = 1;
+				}
+			}
+		}
+		else {
+			dynamic.emplace(key(entry.type, entry.placement), entry.object.get());
+		}
+	}
+	if (towers.size() != snapshot.towers.size()) return reject();
+	std::vector<std::pair<Tower*, const SnapshotTower*>> towerStates;
+	for (const SnapshotTower& state : snapshot.towers) {
+		const auto found = towers.find(key(ObjectType::Tower, toRect(state.placement)));
+		if (found == towers.end() || !found->second->canApplySnapshot(state)) return reject();
+		towerStates.emplace_back(found->second, &state);
+	}
+	std::map<Key, std::pair<ObjectType, SDL_Rect>> requested;
+	for (const SnapshotObject& state : snapshot.objects) {
+		const SDL_Rect area = toRect(state.cells);
+		if (!isInsideGrid(area)) return reject();
+		for (int y = area.y; y < area.y + area.h; ++y) {
+			for (int x = area.x; x < area.x + area.w; ++x) {
+				const std::size_t index = cellIndex(x, y);
+				if (occupied[index]) return reject();
+				occupied[index] = 1;
+			}
+		}
+		const auto type = objectType(state.type);
+		if (!type) return reject();
+		requested.emplace(key(*type, area), std::make_pair(*type, area));
+	}
+	for (const auto& entry : dynamic) {
+		if (requested.find(entry.first) == requested.end()) remove(entry.second);
+	}
+	for (const auto& entry : requested) {
+		if (dynamic.find(entry.first) == dynamic.end()) add(entry.second.first, entry.second.second);
+	}
+	for (const auto& state : towerStates) state.first->applySnapshot(*state.second);
+	respawns_.clear();
+	return true;
 }
 
 std::size_t ArenaObjects::cellIndex(int x, int y) const {
@@ -226,8 +315,13 @@ bool ArenaObjects::isAreaFree(const SDL_Rect& area, const std::vector<std::uint8
 }
 
 void ArenaObjects::add(ObjectType type, const SDL_Rect& area) {
-	entries_.push_back({ type, create(type, area, cellSize_, renderer_) });
+	entries_.push_back({ type, area, create(type, area, cellSize_, renderer_) });
 	WorldObject* object = entries_.back().object.get();
+	if (type == ObjectType::Wall) {
+		const SDL_Rect& cells = object->cells();
+		walls_.add({ static_cast<float>(cells.x * cellSize_), static_cast<float>(cells.y * cellSize_),
+			static_cast<float>(cells.w * cellSize_), static_cast<float>(cells.h * cellSize_) });
+	}
 	object->setSolidQuery([this](const SDL_Rect& box) { return blocksProjectiles(box); });
 	if (object->isPickup()) {
 		pickups_.push_back({ type, { area.x + area.w / 2, area.y + area.h / 2 } });
