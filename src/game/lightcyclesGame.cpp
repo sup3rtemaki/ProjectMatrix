@@ -26,18 +26,13 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* st
 	player_(PLAYER_GLOW, PLAYER_CORE, cycleSkins_.forColor(PLAYER_CORE), CELL_SIZE),
 	objects_(CELL_SIZE) {
 	renderContext_.renderer = renderer_;
-	renderContext_.camera = { 0, 0, CAMERA_WIDTH, CAMERA_HEIGHT };
-
-	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-	worldTexture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888,
-		SDL_TEXTUREACCESS_TARGET, CAMERA_WIDTH, CAMERA_HEIGHT);
-	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
 	cameraController_.isLerping = false;
 	cameraController_.target = &player_;
 
 	hudUi_.setRenderer(renderer_);
 	hudUi_.setResourcePath(resPath_);
+	setResolution(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
 	objects_.setRenderer(renderer_);
 	cycleNameFontPath_ = resPath_ + "fonts/vermin_vibes_1989.ttf";
 	if (!std::ifstream(cycleNameFontPath_).good()) {
@@ -47,6 +42,37 @@ LightcyclesGame::LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* st
 	levelCount_ = countLevels();
 	inMenu_ = true;
 	exitRequested_ = false;
+}
+
+void LightcyclesGame::setResolution(int width, int height) {
+	windowWidth_ = std::max(320, width);
+	windowHeight_ = std::max(240, height);
+	hudUi_.setScreenSize(windowWidth_, windowHeight_);
+	hudHeight_ = hudUi_.height();
+	viewportHeight_ = windowHeight_ - hudHeight_;
+	applyCameraSize();
+}
+
+void LightcyclesGame::applyCameraSize() {
+	const float pixelScale = BASE_PIXEL_SCALE * std::max(1.0f, windowHeight_ / 768.0f);
+	// Even sizes keep round(x - w/2) == round(x) - w/2, so the cycle never shifts against the camera.
+	const int cameraW = std::max(2, static_cast<int>(windowWidth_ / pixelScale) & ~1);
+	const int cameraH = std::max(2, static_cast<int>(viewportHeight_ / pixelScale) & ~1);
+	renderContext_.camera.w = cameraW;
+	renderContext_.camera.h = cameraH;
+
+	if (worldTexture_ != nullptr) {
+		SDL_DestroyTexture(worldTexture_);
+	}
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+	worldTexture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888,
+		SDL_TEXTUREACCESS_TARGET, cameraW, cameraH);
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
+	const int worldWidth = level_.width * CELL_SIZE;
+	const int worldHeight = level_.height * CELL_SIZE;
+	renderContext_.camera.x = std::clamp(renderContext_.camera.x, 0, std::max(0, worldWidth - cameraW));
+	renderContext_.camera.y = std::clamp(renderContext_.camera.y, 0, std::max(0, worldHeight - cameraH));
 }
 
 LightcyclesGame::~LightcyclesGame() {
@@ -294,9 +320,11 @@ std::size_t LightcyclesGame::countLevels() const {
 }
 
 bool LightcyclesGame::isPlayable(const LevelDefinition& level) const {
-	if (level.width < MIN_GRID_WIDTH || level.height < MIN_GRID_HEIGHT) {
+	const int minGridWidth = (renderContext_.camera.w + CELL_SIZE - 1) / CELL_SIZE;
+	const int minGridHeight = (renderContext_.camera.h + CELL_SIZE - 1) / CELL_SIZE;
+	if (level.width < minGridWidth || level.height < minGridHeight) {
 		std::cerr << "Level " << level.name << " is smaller than the window ("
-			<< MIN_GRID_WIDTH << "x" << MIN_GRID_HEIGHT << " cells minimum)" << std::endl;
+			<< minGridWidth << "x" << minGridHeight << " cells minimum)" << std::endl;
 		return false;
 	}
 	if (level.enemies.empty()) {
@@ -699,7 +727,7 @@ void LightcyclesGame::render() {
 	const bool useTexture = worldTexture_ != nullptr
 		&& SDL_SetRenderTarget(renderer_, worldTexture_) == 0;
 	// Without the texture, fall back to drawing directly below the HUD.
-	const int offsetY = useTexture ? 0 : HUD_HEIGHT;
+	const int offsetY = useTexture ? 0 : hudHeight_;
 	if (useTexture) {
 		SDL_SetRenderDrawColor(renderer_, 0, 0, 0, SDL_ALPHA_OPAQUE);
 		SDL_RenderClear(renderer_);
@@ -766,7 +794,7 @@ void LightcyclesGame::render() {
 	objects_.drawProjectiles(drawContext);
 	if (useTexture) {
 		SDL_SetRenderTarget(renderer_, nullptr);
-		const SDL_Rect gameArea = { 0, HUD_HEIGHT, WINDOW_WIDTH, VIEWPORT_HEIGHT };
+		const SDL_Rect gameArea = { 0, hudHeight_, windowWidth_, viewportHeight_ };
 		SDL_RenderCopy(renderer_, worldTexture_, nullptr, &gameArea);
 	}
 
@@ -812,7 +840,7 @@ void LightcyclesGame::render() {
 	hudUi_.updateState(hudState);
 	hudUi_.draw();
 
-	SDL_Rect statusStrip = { 0, HUD_HEIGHT - 2, WINDOW_WIDTH, 2 };
+	SDL_Rect statusStrip = { 0, hudHeight_ - 2, windowWidth_, 2 };
 	switch (result_) {
 	case GameResult::PlayerWon:
 		SDL_SetRenderDrawColor(renderer_, 20, 255, 170, SDL_ALPHA_OPAQUE);
@@ -1116,10 +1144,10 @@ void LightcyclesGame::respawnCycle(Cycle& cycle) {
 		}
 	}
 	if (&cycle == &player_) {
-		renderContext_.camera.x = std::clamp(static_cast<int>(player_.x) - WINDOW_WIDTH / 2,
-			0, level_.width * CELL_SIZE - WINDOW_WIDTH);
-		renderContext_.camera.y = std::clamp(static_cast<int>(player_.y) - VIEWPORT_HEIGHT / 2,
-			0, level_.height * CELL_SIZE - VIEWPORT_HEIGHT);
+		renderContext_.camera.x = std::clamp(static_cast<int>(player_.x) - renderContext_.camera.w / 2,
+			0, level_.width * CELL_SIZE - renderContext_.camera.w);
+		renderContext_.camera.y = std::clamp(static_cast<int>(player_.y) - renderContext_.camera.h / 2,
+			0, level_.height * CELL_SIZE - renderContext_.camera.h);
 	}
 }
 

@@ -2,6 +2,7 @@
 
 #include "ui/ui.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -37,6 +38,10 @@ public:
 	HudUi();
 	~HudUi() override;
 
+	// Layout scales with the screen height (reference design: 960x640).
+	void setScreenSize(int width, int height);
+	int height() const { return height_; }
+
 	void setFont(const std::string& fontFile);
 	void updateState(const HudState& state);
 	void draw() override;
@@ -60,6 +65,12 @@ private:
 	std::string fontFile_ = "fonts/vermin_vibes_1989.ttf";
 	std::string fallbackFontFile_ = "fonts/Berylium.ttf";
 	HudState state_;
+	int screenWidth_ = 960;
+	int screenHeight_ = 640;
+	float scale_ = 1.0f;
+	int height_ = HEIGHT;
+
+	int px(int value) const { return std::max(1, static_cast<int>(value * scale_ + 0.5f)); }
 
 	CachedText labelScore_;
 	CachedText labelLives_;

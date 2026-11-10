@@ -162,6 +162,22 @@ struct LightcyclesGameInputTest {
 		assert(std::abs(std::remainder(enemy.headingDegrees(), 360.0f)) > 10.0f);
 	}
 
+	static void runResolution(SDL_Renderer* renderer) {
+		LightcyclesGame game(renderer);
+		const int sizes[][2] = { { 1280, 720 }, { 1404, 768 }, { 1920, 1080 }, { 3840, 2160 } };
+		for (const auto& size : sizes) {
+			game.setResolution(size[0], size[1]);
+			assert(game.windowWidth() == size[0] && game.windowHeight() == size[1]);
+			assert(game.hudHeight_ + game.viewportHeight_ == size[1]);
+			// Camera and viewport must keep the same aspect ratio so the world is not stretched.
+			const float cameraAspect = static_cast<float>(game.renderContext_.camera.w) / game.renderContext_.camera.h;
+			const float viewAspect = static_cast<float>(size[0]) / game.viewportHeight_;
+			assert(std::abs(cameraAspect - viewAspect) < 0.05f);
+			assert(game.worldTexture_ != nullptr);
+			assert(game.renderContext_.camera.w % 2 == 0 && game.renderContext_.camera.h % 2 == 0);
+		}
+	}
+
 	static void runSpectator(SDL_Renderer* renderer) {
 		LightcyclesGame game(renderer);
 		game.level_.width = 200;
@@ -501,6 +517,7 @@ int main() {
 	assert(renderer != nullptr);
 	LightcyclesGameInputTest::run(renderer);
 	LightcyclesGameInputTest::runSpectator(renderer);
+	LightcyclesGameInputTest::runResolution(renderer);
 	LightcyclesGameInputTest::runWallIndex();
 	LightcyclesGameInputTest::runRemote(renderer, 0);
 	LightcyclesGameInputTest::runRemote(renderer, 2);

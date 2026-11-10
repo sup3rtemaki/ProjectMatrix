@@ -48,17 +48,39 @@ std::string MainMenu::resolveFontPath(const std::string& relative) const {
 	return "";
 }
 
+void MainMenu::setScreenSize(int width, int height) {
+	screenWidth_ = std::max(1, width);
+	screenHeight_ = std::max(1, height);
+	scale_ = std::min(screenWidth_ / 960.0f, screenHeight_ / 640.0f);
+	offsetX_ = static_cast<int>((screenWidth_ - 960 * scale_) / 2.0f);
+	offsetY_ = static_cast<int>((screenHeight_ - 640 * scale_) / 2.0f);
+}
+
+void MainMenu::setDisplayModes(const std::vector<DisplayMode>& modes, std::size_t currentIndex, bool fullscreen) {
+	if (modes.empty()) return;
+	displayModes_ = modes;
+	displayIndex_ = std::min(currentIndex, modes.size() - 1);
+	fullscreen_ = fullscreen;
+	setScreenSize(displayModes_[displayIndex_].width, displayModes_[displayIndex_].height);
+}
+
+SDL_Rect MainMenu::designRect(int x, int y, int w, int h) const {
+	return { offsetX_ + static_cast<int>(x * scale_), offsetY_ + static_cast<int>(y * scale_),
+		std::max(1, static_cast<int>(w * scale_)), std::max(1, static_cast<int>(h * scale_)) };
+}
+
 void MainMenu::renderString(const std::string& text, int x, int y, SDL_Color color, int fontSize, bool center) {
 	if (text.empty() || renderer_ == nullptr) return;
 	const std::string font = resolveFontPath(fontFile_);
 	if (font.empty()) return;
 
-	SDL_Texture* tex = renderText(text, font, color, fontSize, renderer_);
+	SDL_Texture* tex = renderText(text, font, color, std::max(1, static_cast<int>(fontSize * scale_ + 0.5f)), renderer_);
 	if (tex != nullptr) {
 		int w = 0, h = 0;
 		SDL_QueryTexture(tex, nullptr, nullptr, &w, &h);
-		int drawX = center ? (x - w / 2) : x;
-		SDL_Rect dst = { drawX, y, w, h };
+		const int baseX = offsetX_ + static_cast<int>(x * scale_);
+		const int drawX = center ? (baseX - w / 2) : baseX;
+		SDL_Rect dst = { drawX, offsetY_ + static_cast<int>(y * scale_), w, h };
 		SDL_RenderCopy(renderer_, tex, nullptr, &dst);
 		SDL_DestroyTexture(tex);
 	}
@@ -72,18 +94,18 @@ void MainMenu::draw() {
 }
 
 void MainMenu::drawMenuBackground() {
-	// Dark retro grid background
+	// Dark retro grid background covering the whole screen
 	SDL_SetRenderDrawColor(renderer_, 6, 10, 16, 255);
-	SDL_Rect bg = { 0, 0, 960, 640 };
+	SDL_Rect bg = { 0, 0, screenWidth_, screenHeight_ };
 	SDL_RenderFillRect(renderer_, &bg);
 
-	// Grid lines
 	SDL_SetRenderDrawColor(renderer_, 14, 22, 34, 255);
-	for (int x = 0; x < 960; x += 32) {
-		SDL_RenderDrawLine(renderer_, x, 0, x, 640);
+	const float step = std::max(8.0f, 32.0f * scale_);
+	for (float x = static_cast<float>(offsetX_ % static_cast<int>(step)); x < screenWidth_; x += step) {
+		SDL_RenderDrawLine(renderer_, static_cast<int>(x), 0, static_cast<int>(x), screenHeight_);
 	}
-	for (int y = 0; y < 640; y += 32) {
-		SDL_RenderDrawLine(renderer_, 0, y, 960, y);
+	for (float y = static_cast<float>(offsetY_ % static_cast<int>(step)); y < screenHeight_; y += step) {
+		SDL_RenderDrawLine(renderer_, 0, static_cast<int>(y), screenWidth_, static_cast<int>(y));
 	}
 
 	// Title
@@ -105,11 +127,37 @@ void MainMenu::drawText() {
 	case MainMenuScreen::SearchLobby:
 		drawSearchLobby();
 		break;
+	case MainMenuScreen::Options:
+		drawOptions();
+		break;
 	}
 }
 
+void MainMenu::drawOptions() {
+	renderString("- OPTIONS -", 480, 170, { 200, 220, 240, 255 }, 22, true);
+
+	const DisplayMode& mode = displayModes_[displayIndex_];
+	const std::vector<std::pair<std::string, std::string>> rows = {
+		{ "RESOLUTION", "< " + std::to_string(mode.width) + " x " + std::to_string(mode.height) + " >" },
+		{ "DISPLAY MODE", std::string("< ") + (fullscreen_ ? "Fullscreen" : "Windowed") + " >" },
+		{ "BACK", "" }
+	};
+	const int startY = 250;
+	const int rowSpacing = 55;
+	for (std::size_t i = 0; i < rows.size(); ++i) {
+		const bool selected = (index == static_cast<int>(i));
+		const SDL_Color labelColor = selected ? SDL_Color{ 20, 255, 170, 255 } : SDL_Color{ 160, 185, 210, 255 };
+		const SDL_Color valueColor = selected ? SDL_Color{ 255, 255, 255, 255 } : SDL_Color{ 140, 170, 200, 255 };
+		const int y = startY + static_cast<int>(i) * rowSpacing;
+		renderString((selected ? ">  " : "   ") + rows[i].first, 250, y, labelColor, 22, false);
+		renderString(rows[i].second, 560, y, valueColor, 22, false);
+	}
+
+	renderString("UP / DOWN: Navigate   |   LEFT / RIGHT: Change   |   ESC: Back", 480, 580, { 100, 120, 145, 255 }, 16, true);
+}
+
 void MainMenu::drawRootMenu() {
-	const std::vector<std::string> items = { "PLAY", "EXIT" };
+	const std::vector<std::string> items = { "PLAY", "OPTIONS", "EXIT" };
 	const int startY = 260;
 	const int itemSpacing = 60;
 
@@ -212,8 +260,8 @@ void MainMenu::drawHostConfig() {
 
 		// Color preview square for PLAYER COLOR row (index 2)
 		if (i == 2) {
-			const SDL_Rect glow = { 720, startY + static_cast<int>(i) * rowSpacing + 2, 20, 20 };
-			const SDL_Rect core = { 723, startY + static_cast<int>(i) * rowSpacing + 5, 14, 14 };
+			const SDL_Rect glow = designRect(720, startY + static_cast<int>(i) * rowSpacing + 2, 20, 20);
+			const SDL_Rect core = designRect(723, startY + static_cast<int>(i) * rowSpacing + 5, 14, 14);
 			SDL_SetRenderDrawColor(renderer_, config_.playerGlow.r, config_.playerGlow.g, config_.playerGlow.b, 255);
 			SDL_RenderFillRect(renderer_, &glow);
 			SDL_SetRenderDrawColor(renderer_, config_.playerCore.r, config_.playerCore.g, config_.playerCore.b, 255);
@@ -224,31 +272,51 @@ void MainMenu::drawHostConfig() {
 	renderString("UP / DOWN: Select Option   |   LEFT / RIGHT: Change Value   |   ENTER: Confirm", 480, 580, { 100, 120, 145, 255 }, 16, true);
 }
 
-void MainMenu::onIndexUp() {
-	int maxIndex = 1;
-	if (screen_ == MainMenuScreen::PlaySubmenu) maxIndex = 2;
-	else if (screen_ == MainMenuScreen::HostConfig) maxIndex = 6;
-	else if (screen_ == MainMenuScreen::SearchLobby) {
-		maxIndex = availableLobbies_.empty() ? 0 : static_cast<int>(availableLobbies_.size()) - 1;
+int MainMenu::maxIndexForScreen() const {
+	switch (screen_) {
+	case MainMenuScreen::PlaySubmenu: return 2;
+	case MainMenuScreen::HostConfig: return 6;
+	case MainMenuScreen::Options: return 2;
+	case MainMenuScreen::SearchLobby:
+		return availableLobbies_.empty() ? 0 : static_cast<int>(availableLobbies_.size()) - 1;
+	case MainMenuScreen::Root: break;
 	}
+	return 2;
+}
+
+void MainMenu::changeDisplay(int delta, bool toggleFullscreen) {
+	if (toggleFullscreen) {
+		fullscreen_ = !fullscreen_;
+	}
+	else {
+		const int count = static_cast<int>(displayModes_.size());
+		displayIndex_ = static_cast<std::size_t>((static_cast<int>(displayIndex_) + delta + count) % count);
+	}
+	const DisplayMode& mode = displayModes_[displayIndex_];
+	setScreenSize(mode.width, mode.height);
+	if (onDisplayChanged_) onDisplayChanged_(mode, fullscreen_);
+}
+
+void MainMenu::onIndexUp() {
+	const int maxIndex = maxIndexForScreen();
 
 	--index;
 	if (index < 0) index = maxIndex;
 }
 
 void MainMenu::onIndexDown() {
-	int maxIndex = 1;
-	if (screen_ == MainMenuScreen::PlaySubmenu) maxIndex = 2;
-	else if (screen_ == MainMenuScreen::HostConfig) maxIndex = 6;
-	else if (screen_ == MainMenuScreen::SearchLobby) {
-		maxIndex = availableLobbies_.empty() ? 0 : static_cast<int>(availableLobbies_.size()) - 1;
-	}
+	const int maxIndex = maxIndexForScreen();
 
 	++index;
 	if (index > maxIndex) index = 0;
 }
 
 void MainMenu::onIndexLeft() {
+	if (screen_ == MainMenuScreen::Options) {
+		if (index == 0) changeDisplay(-1, false);
+		else if (index == 1) changeDisplay(0, true);
+		return;
+	}
 	if (screen_ != MainMenuScreen::HostConfig) return;
 
 	switch (index) {
@@ -297,6 +365,11 @@ void MainMenu::onIndexLeft() {
 }
 
 void MainMenu::onIndexRight() {
+	if (screen_ == MainMenuScreen::Options) {
+		if (index == 0) changeDisplay(1, false);
+		else if (index == 1) changeDisplay(0, true);
+		return;
+	}
 	if (screen_ != MainMenuScreen::HostConfig) return;
 
 	switch (index) {
@@ -348,6 +421,15 @@ void MainMenu::onSelect() {
 	case MainMenuScreen::SearchLobby:
 		handleSearchLobbySelect();
 		break;
+	case MainMenuScreen::Options:
+		if (index == 2) {
+			screen_ = MainMenuScreen::Root;
+			index = 1;
+		}
+		else {
+			onIndexRight();
+		}
+		break;
 	}
 }
 
@@ -357,7 +439,11 @@ void MainMenu::handleRootSelect() {
 		screen_ = MainMenuScreen::PlaySubmenu;
 		index = 1; // Default to "HOST GAME"
 		break;
-	case 1: // EXIT
+	case 1: // OPTIONS
+		screen_ = MainMenuScreen::Options;
+		index = 0;
+		break;
+	case 2: // EXIT
 		if (onQuit_) onQuit_();
 		break;
 	}
@@ -437,6 +523,10 @@ void MainMenu::onBack() {
 	case MainMenuScreen::SearchLobby:
 		screen_ = MainMenuScreen::PlaySubmenu;
 		index = 0;
+		break;
+	case MainMenuScreen::Options:
+		screen_ = MainMenuScreen::Root;
+		index = 1;
 		break;
 	}
 }

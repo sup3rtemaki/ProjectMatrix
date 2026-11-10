@@ -55,6 +55,13 @@ HudUi::HudUi() = default;
 
 HudUi::~HudUi() = default;
 
+void HudUi::setScreenSize(int width, int height) {
+	screenWidth_ = std::max(1, width);
+	screenHeight_ = std::max(1, height);
+	scale_ = screenHeight_ / 640.0f;
+	height_ = px(HEIGHT);
+}
+
 void HudUi::setFont(const std::string& fontFile) {
 	fontFile_ = fontFile;
 }
@@ -79,9 +86,9 @@ void HudUi::drawLifePips(int x, int y, int lives, int maxLives) {
 	if (renderer_ == nullptr) {
 		return;
 	}
-	constexpr int PIP_WIDTH = 10;
-	constexpr int PIP_HEIGHT = 14;
-	constexpr int PIP_GAP = 5;
+	const int PIP_WIDTH = px(10);
+	const int PIP_HEIGHT = px(14);
+	const int PIP_GAP = px(5);
 
 	for (int i = 0; i < maxLives; ++i) {
 		const SDL_Rect pip = { x + i * (PIP_WIDTH + PIP_GAP), y, PIP_WIDTH, PIP_HEIGHT };
@@ -107,103 +114,102 @@ void HudUi::draw() {
 
 	const std::string font = resolveFontPath(fontFile_);
 
+	const int W = screenWidth_;
+	const int H = screenHeight_;
+	const int bar = height_;
+
 	// Opaque top bar
 	SDL_SetRenderDrawColor(renderer_, 8, 14, 22, SDL_ALPHA_OPAQUE);
-	const SDL_Rect topBar = { 0, 0, 960, HEIGHT };
+	const SDL_Rect topBar = { 0, 0, W, bar };
 	SDL_RenderFillRect(renderer_, &topBar);
 	SDL_SetRenderDrawColor(renderer_, 30, 45, 65, SDL_ALPHA_OPAQUE);
-	SDL_RenderDrawLine(renderer_, 0, HEIGHT - 1, 960, HEIGHT - 1);
+	SDL_RenderDrawLine(renderer_, 0, bar - 1, W, bar - 1);
 
 	// Score
 	const std::string scoreText = "SCORE: " + std::to_string(state_.score);
-	labelScore_.update(scoreText, font, { 20, 235, 255, 255 }, 18, renderer_);
-	labelScore_.draw(renderer_, 14, 8);
+	labelScore_.update(scoreText, font, { 20, 235, 255, 255 }, px(18), renderer_);
+	const int textY = std::max(0, (bar - labelScore_.height) / 2);
+	labelScore_.draw(renderer_, px(14), textY);
 
 	// Lives
-	const std::string livesText = "LIVES:";
-	labelLives_.update(livesText, font, { 220, 235, 245, 255 }, 18, renderer_);
-	labelLives_.draw(renderer_, 170, 8);
-	const int pipsX = labelLives_.width > 0 ? 170 + labelLives_.width + 8 : 240;
-	drawLifePips(pipsX, 10, state_.lives, state_.maxLives);
+	const int livesX = px(14) + std::max(labelScore_.width, px(150)) + px(16);
+	labelLives_.update("LIVES:", font, { 220, 235, 245, 255 }, px(18), renderer_);
+	labelLives_.draw(renderer_, livesX, textY);
+	const int pipsX = livesX + labelLives_.width + px(8);
+	drawLifePips(pipsX, (bar - px(14)) / 2, state_.lives, state_.maxLives);
 
 	// Power-up indicators
-	int badgeX = pipsX + state_.maxLives * 15 + 24;
+	int badgeX = pipsX + state_.maxLives * (px(10) + px(5)) + px(24);
+	const int badgeY = textY + px(1);
 	if (state_.hasBoost) {
-		labelPowerupBoost_.update("[BOOST]", font, { 40, 255, 90, 255 }, 16, renderer_);
-		labelPowerupBoost_.draw(renderer_, badgeX, 9);
-		badgeX += labelPowerupBoost_.width + 10;
+		labelPowerupBoost_.update("[BOOST]", font, { 40, 255, 90, 255 }, px(16), renderer_);
+		labelPowerupBoost_.draw(renderer_, badgeX, badgeY);
+		badgeX += labelPowerupBoost_.width + px(10);
 	}
 	else {
 		labelPowerupBoost_.cleanup();
 	}
 	if (state_.hasLongTrail) {
-		labelPowerupTrail_.update("[TRAIL+]", font, { 170, 255, 40, 255 }, 16, renderer_);
-		labelPowerupTrail_.draw(renderer_, badgeX, 9);
-		badgeX += labelPowerupTrail_.width + 10;
+		labelPowerupTrail_.update("[TRAIL+]", font, { 170, 255, 40, 255 }, px(16), renderer_);
+		labelPowerupTrail_.draw(renderer_, badgeX, badgeY);
+		badgeX += labelPowerupTrail_.width + px(10);
 	}
 	else {
 		labelPowerupTrail_.cleanup();
 	}
 	if (state_.hasSlow) {
-		labelPowerupSlow_.update("[SLOW]", font, { 255, 150, 30, 255 }, 16, renderer_);
-		labelPowerupSlow_.draw(renderer_, badgeX, 9);
+		labelPowerupSlow_.update("[SLOW]", font, { 255, 150, 30, 255 }, px(16), renderer_);
+		labelPowerupSlow_.draw(renderer_, badgeX, badgeY);
 	}
 	else {
 		labelPowerupSlow_.cleanup();
 	}
 
-	// Level info & enemies
-	const std::string levelText = state_.levelName.empty() ? "" : state_.levelName;
-	labelLevel_.update(levelText, font, { 140, 175, 205, 255 }, 16, renderer_);
+	// Level info & enemies, right-aligned
+	const std::string enemiesText = "ENEMIES: " + std::to_string(state_.enemiesAlive) + "/" + std::to_string(state_.totalEnemies);
+	labelEnemies_.update(enemiesText, font, { 255, 90, 110, 255 }, px(18), renderer_);
+	const int enemiesX = W - labelEnemies_.width - px(14);
+	labelEnemies_.draw(renderer_, enemiesX, textY);
+
+	labelLevel_.update(state_.levelName, font, { 140, 175, 205, 255 }, px(16), renderer_);
 	if (labelLevel_.width > 0) {
-		labelLevel_.draw(renderer_, 720 - labelLevel_.width, 9);
+		labelLevel_.draw(renderer_, enemiesX - px(30) - labelLevel_.width, badgeY);
 	}
 
-	const std::string enemiesText = "ENEMIES: " + std::to_string(state_.enemiesAlive) + "/" + std::to_string(state_.totalEnemies);
-	labelEnemies_.update(enemiesText, font, { 255, 90, 110, 255 }, 18, renderer_);
-	labelEnemies_.draw(renderer_, 780, 8);
-
-	// Respawning banner
-	if (state_.waiting && state_.status == HudGameStatus::Running) {
-		labelStatusBanner_.update("WAITING FOR PLAYERS...", font, { 255, 235, 50, 255 }, 24, renderer_);
-		const int bx = (960 - labelStatusBanner_.width) / 2;
-		const int by = 260;
+	const auto drawBox = [&](const SDL_Rect& box, Uint8 alpha, SDL_Color border) {
 		SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-		SDL_SetRenderDrawColor(renderer_, 10, 15, 25, 200);
-		const SDL_Rect bg = { bx - 16, by - 6, labelStatusBanner_.width + 32, labelStatusBanner_.height + 12 };
-		SDL_RenderFillRect(renderer_, &bg);
-		SDL_SetRenderDrawColor(renderer_, 255, 235, 50, SDL_ALPHA_OPAQUE);
-		SDL_RenderDrawRect(renderer_, &bg);
+		SDL_SetRenderDrawColor(renderer_, 10, 15, 25, alpha);
+		SDL_RenderFillRect(renderer_, &box);
+		SDL_SetRenderDrawColor(renderer_, border.r, border.g, border.b, SDL_ALPHA_OPAQUE);
+		SDL_RenderDrawRect(renderer_, &box);
+	};
+	const SDL_Color yellow{ 255, 235, 50, 255 };
+	const auto drawSingleBanner = [&](const char* text) {
+		labelStatusBanner_.update(text, font, yellow, px(24), renderer_);
+		const int bx = (W - labelStatusBanner_.width) / 2;
+		const int by = H * 2 / 5;
+		drawBox({ bx - px(16), by - px(6), labelStatusBanner_.width + px(32), labelStatusBanner_.height + px(12) },
+			200, yellow);
 		labelStatusBanner_.draw(renderer_, bx, by);
+	};
+
+	if (state_.waiting && state_.status == HudGameStatus::Running) {
+		drawSingleBanner("WAITING FOR PLAYERS...");
 	}
 	else if (state_.spectating && state_.status == HudGameStatus::Running) {
-		labelStatusBanner_.update("SPECTATING", font, { 255, 235, 50, 255 }, 24, renderer_);
+		labelStatusBanner_.update("SPECTATING", font, yellow, px(24), renderer_);
 		labelStatusSub_.update(state_.spectatorTarget.empty() ? "FOLLOWING A CYCLE"
-			: "FOLLOWING: " + state_.spectatorTarget, font, { 230, 240, 255, 255 }, 18, renderer_);
-		const int boxW = std::max(labelStatusBanner_.width, labelStatusSub_.width) + 32;
-		const int bx = (960 - boxW) / 2;
-		const int by = 55;
-		SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-		SDL_SetRenderDrawColor(renderer_, 10, 15, 25, 200);
-		const SDL_Rect bg{ bx, by, boxW, labelStatusBanner_.height + labelStatusSub_.height + 14 };
-		SDL_RenderFillRect(renderer_, &bg);
-		SDL_SetRenderDrawColor(renderer_, 255, 235, 50, SDL_ALPHA_OPAQUE);
-		SDL_RenderDrawRect(renderer_, &bg);
-		labelStatusBanner_.draw(renderer_, (960 - labelStatusBanner_.width) / 2, by + 3);
-		labelStatusSub_.draw(renderer_, (960 - labelStatusSub_.width) / 2,
-			by + labelStatusBanner_.height + 5);
+			: "FOLLOWING: " + state_.spectatorTarget, font, { 230, 240, 255, 255 }, px(18), renderer_);
+		const int boxW = std::max(labelStatusBanner_.width, labelStatusSub_.width) + px(32);
+		const int bx = (W - boxW) / 2;
+		const int by = bar + px(19);
+		drawBox({ bx, by, boxW, labelStatusBanner_.height + labelStatusSub_.height + px(14) }, 200, yellow);
+		labelStatusBanner_.draw(renderer_, (W - labelStatusBanner_.width) / 2, by + px(3));
+		labelStatusSub_.draw(renderer_, (W - labelStatusSub_.width) / 2,
+			by + labelStatusBanner_.height + px(5));
 	}
 	else if (state_.isRespawning && state_.status == HudGameStatus::Running) {
-		labelStatusBanner_.update("RESPAWNING...", font, { 255, 235, 50, 255 }, 24, renderer_);
-		const int bx = (960 - labelStatusBanner_.width) / 2;
-		const int by = 260;
-		SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-		SDL_SetRenderDrawColor(renderer_, 10, 15, 25, 200);
-		const SDL_Rect bg = { bx - 16, by - 6, labelStatusBanner_.width + 32, labelStatusBanner_.height + 12 };
-		SDL_RenderFillRect(renderer_, &bg);
-		SDL_SetRenderDrawColor(renderer_, 255, 235, 50, SDL_ALPHA_OPAQUE);
-		SDL_RenderDrawRect(renderer_, &bg);
-		labelStatusBanner_.draw(renderer_, bx, by);
+		drawSingleBanner("RESPAWNING...");
 	}
 	else if (state_.status != HudGameStatus::Running) {
 		// End of game banners
@@ -231,23 +237,18 @@ void HudUi::draw() {
 			break;
 		}
 
-		labelStatusBanner_.update(mainText, font, bannerColor, 36, renderer_);
-		labelStatusSub_.update(subText, font, { 230, 240, 255, 255 }, 18, renderer_);
+		labelStatusBanner_.update(mainText, font, bannerColor, px(36), renderer_);
+		labelStatusSub_.update(subText, font, { 230, 240, 255, 255 }, px(18), renderer_);
 
-		const int totalW = std::max(labelStatusBanner_.width, labelStatusSub_.width) + 40;
-		const int totalH = labelStatusBanner_.height + labelStatusSub_.height + 30;
-		const int boxX = (960 - totalW) / 2;
-		const int boxY = (640 - totalH) / 2;
+		const int totalW = std::max(labelStatusBanner_.width, labelStatusSub_.width) + px(40);
+		const int totalH = labelStatusBanner_.height + labelStatusSub_.height + px(30);
+		const int boxX = (W - totalW) / 2;
+		const int boxY = (H - totalH) / 2;
 
-		SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-		SDL_SetRenderDrawColor(renderer_, 8, 12, 20, 230);
-		const SDL_Rect modal = { boxX, boxY, totalW, totalH };
-		SDL_RenderFillRect(renderer_, &modal);
-		SDL_SetRenderDrawColor(renderer_, bannerColor.r, bannerColor.g, bannerColor.b, SDL_ALPHA_OPAQUE);
-		SDL_RenderDrawRect(renderer_, &modal);
+		drawBox({ boxX, boxY, totalW, totalH }, 230, bannerColor);
 
-		labelStatusBanner_.draw(renderer_, (960 - labelStatusBanner_.width) / 2, boxY + 12);
-		labelStatusSub_.draw(renderer_, (960 - labelStatusSub_.width) / 2, boxY + 16 + labelStatusBanner_.height);
+		labelStatusBanner_.draw(renderer_, (W - labelStatusBanner_.width) / 2, boxY + px(12));
+		labelStatusSub_.draw(renderer_, (W - labelStatusSub_.width) / 2, boxY + px(16) + labelStatusBanner_.height);
 	}
 	else {
 		labelStatusBanner_.cleanup();

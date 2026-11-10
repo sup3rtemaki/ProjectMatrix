@@ -33,16 +33,17 @@ enum class GameResult {
 
 class LightcyclesGame {
 public:
-	static constexpr int WINDOW_WIDTH = 960;
-	static constexpr int WINDOW_HEIGHT = 640;
-	static constexpr int HUD_HEIGHT = 36;
-	static constexpr int VIEWPORT_HEIGHT = WINDOW_HEIGHT - HUD_HEIGHT;
-	static constexpr float CAMERA_ZOOM = 0.64f;
-	static constexpr int CAMERA_WIDTH = static_cast<int>(WINDOW_WIDTH * CAMERA_ZOOM);
-	static constexpr int CAMERA_HEIGHT = static_cast<int>(VIEWPORT_HEIGHT * CAMERA_ZOOM);
+	static constexpr int DEFAULT_WINDOW_WIDTH = 960;
+	static constexpr int DEFAULT_WINDOW_HEIGHT = 640;
+	// World pixels are drawn at this many screen pixels at 768p; larger screens scale it up.
+	static constexpr float BASE_PIXEL_SCALE = 1.5625f;
 
 	explicit LightcyclesGame(SDL_Renderer* renderer, SteamSessionService* steamSession = nullptr);
 	~LightcyclesGame();
+
+	void setResolution(int width, int height);
+	int windowWidth() const { return windowWidth_; }
+	int windowHeight() const { return windowHeight_; }
 
 	bool isRunning() const;
 	void handleEvent(SDL_Event& event);
@@ -58,8 +59,11 @@ public:
 private:
 	friend struct LightcyclesGameInputTest;
 	static constexpr int CELL_SIZE = 8;
-	static constexpr int MIN_GRID_WIDTH = (WINDOW_WIDTH + CELL_SIZE - 1) / CELL_SIZE;
-	static constexpr int MIN_GRID_HEIGHT = (VIEWPORT_HEIGHT + CELL_SIZE - 1) / CELL_SIZE;
+	int windowWidth_ = DEFAULT_WINDOW_WIDTH;
+	int windowHeight_ = DEFAULT_WINDOW_HEIGHT;
+	int hudHeight_ = 36;
+	int viewportHeight_ = DEFAULT_WINDOW_HEIGHT - 36;
+	void applyCameraSize();
 	inline static const std::string LEVELS_FOLDER = "levels/";
 	inline static const std::string TEXTURES_FOLDER = "textures/";
 	inline static const std::vector<std::string> LEVEL_FILES = { "big_map.json" }; // Tiled maps in LEVELS_FOLDER
